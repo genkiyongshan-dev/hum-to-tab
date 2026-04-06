@@ -10,13 +10,11 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace;overflow:hidden;height:100vh;touch-action:none;-webkit-user-select:none;user-select:none}
 #app{display:flex;flex-direction:column;height:100vh}
-
 .hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border-bottom:1px solid var(--bd);background:var(--sf)}
 .logo{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--acc)}.logo span{color:var(--dm);font-weight:400}
 .tog{display:flex;background:var(--bg);border-radius:5px;padding:2px;gap:1px}
-.tog button{background:none;border:none;color:var(--dm);font-family:inherit;font-size:8px;padding:4px 8px;border-radius:3px;cursor:pointer;letter-spacing:.3px}
+.tog button{background:none;border:none;color:var(--dm);font-family:inherit;font-size:8px;padding:4px 8px;border-radius:3px;cursor:pointer}
 .tog button.on{background:var(--acc);color:#000;font-weight:700}
-
 .srow{display:flex;align-items:center;gap:6px;padding:4px 12px;border-bottom:1px solid var(--bd);background:var(--sf)}
 .chip{display:inline-flex;align-items:center;gap:3px;border:1px solid var(--bd);padding:2px 7px;border-radius:10px;font-size:8px;color:var(--dm);cursor:pointer}
 .chip.on{border-color:var(--acc);color:var(--acc)}
@@ -27,20 +25,15 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .sg input[type=range]{-webkit-appearance:none;width:44px;height:3px;border-radius:2px;background:#282830;outline:none}
 .sg input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:var(--acc);cursor:pointer}
 .sg .sv{font-size:7px;color:var(--acc);min-width:18px;text-align:right}
-
 .pitch{display:flex;align-items:center;justify-content:center;gap:10px;padding:4px 12px;border-bottom:1px solid var(--bd);min-height:38px}
 .pitch .note{font-size:24px;font-weight:700;min-width:36px;text-align:center;color:var(--dm);transition:color .15s}
 .pitch .note.on{color:var(--acc)}
 .pitch .hz{font-size:11px}.pitch .hzl{font-size:7px;color:var(--dm)}
 .lvl{width:40px;height:3px;background:var(--bd);border-radius:2px;overflow:hidden}
 .lvl-bar{height:100%;background:var(--acc);border-radius:2px;width:0%}
-
-/* Theory bar: key + pattern */
 .tbar{display:flex;align-items:center;gap:5px;padding:4px 12px;border-bottom:1px solid var(--bd);background:var(--sf);min-height:22px}
 .key-b{font-size:9px;font-weight:700;color:var(--acc);background:rgba(255,107,107,.08);padding:1px 6px;border-radius:3px;border:1px solid rgba(255,107,107,.25)}
 .pat-name{font-size:8px;color:var(--gold);margin-left:auto;font-weight:700}
-
-/* Progression strip with degrees */
 .cbar{display:flex;align-items:center;gap:3px;padding:4px 12px;border-bottom:1px solid var(--bd);overflow-x:auto;scrollbar-width:none;min-height:34px}
 .cbar::-webkit-scrollbar{display:none}
 .cbar .lbl{font-size:7px;color:var(--dm);flex-shrink:0;margin-right:2px}
@@ -50,26 +43,19 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .ci.now .cn{background:rgba(255,107,107,.1);border-color:rgba(255,107,107,.35);color:var(--acc)}
 .ci.sel .cn{background:rgba(255,107,107,.18);border-color:var(--acc);color:var(--acc)}
 .ca{color:var(--dm2);font-size:7px;flex-shrink:0}
-
-/* Prediction row */
 .pred{display:flex;align-items:center;gap:3px;padding:4px 12px;border-bottom:1px solid var(--bd);min-height:28px;overflow-x:auto;scrollbar-width:none}
 .pred::-webkit-scrollbar{display:none}
 .pred .plbl{font-size:7px;color:var(--dm);flex-shrink:0;margin-right:2px;white-space:nowrap}
 .pb{flex-shrink:0;padding:3px 8px;border-radius:3px;font-size:9px;font-weight:700;background:rgba(116,192,252,.06);color:var(--blue);border:1px solid rgba(116,192,252,.25);cursor:pointer}
 .pb .pd{font-size:6px;color:var(--dm);font-weight:400}
-
-/* Diagram */
+.pb.hot{border-color:rgba(255,215,59,.4);color:var(--gold);background:rgba(255,215,59,.06)}
 .dgr{border-bottom:1px solid var(--bd);overflow:hidden;max-height:0;transition:max-height .25s;background:var(--sf)}
 .dgr.open{max-height:130px}
 .dgr .inner{display:flex;align-items:center;padding:6px 12px;gap:8px}
 .dgr .dn{font-size:18px;font-weight:700;color:var(--acc);min-width:34px}
 .dgr .di{font-size:7px;color:var(--dm);line-height:1.5}
-
-/* Main content area */
 .main{flex:1;position:relative;overflow:hidden}
 .main canvas{width:100%;height:100%;display:block}
-
-/* LEARN tab content */
 .learn-panel{position:absolute;inset:0;background:var(--bg);overflow-y:auto;display:none;padding:12px;scrollbar-width:none}
 .learn-panel::-webkit-scrollbar{display:none}
 .learn-panel.show{display:block}
@@ -78,24 +64,20 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .lsec p{font-size:9px;color:var(--dm);line-height:1.6;margin-bottom:6px}
 .lcard{background:var(--sf);border:1px solid var(--bd);border-radius:6px;padding:10px;margin-bottom:8px;cursor:pointer}
 .lcard.open{border-color:rgba(255,107,107,.3)}
-.lcard h4{font-size:10px;color:var(--tx);margin-bottom:2px;display:flex;align-items:center;gap:6px}
+.lcard h4{font-size:10px;color:var(--tx);display:flex;align-items:center;gap:6px}
 .lcard h4 .deg{font-size:8px;color:var(--blue);background:rgba(116,192,252,.1);padding:1px 5px;border-radius:2px}
 .lcard .ldet{display:none;margin-top:6px}
 .lcard.open .ldet{display:block}
 .lcard .ldet p{font-size:8px;color:var(--dm);line-height:1.6}
-.lcard .ldet .ex{font-size:8px;color:var(--gold);margin-top:4px}
 .lcard .ldeg-row{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
 .lcard .ldeg{padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;background:rgba(255,107,107,.08);color:var(--acc);border:1px solid rgba(255,107,107,.2)}
-.detected-note{background:rgba(255,215,59,.08);border:1px solid rgba(255,215,59,.25);border-radius:6px;padding:8px 10px;margin-bottom:8px}
+.detected-note{background:rgba(255,215,59,.06);border:1px solid rgba(255,215,59,.2);border-radius:6px;padding:8px 10px;margin-bottom:8px}
 .detected-note h4{font-size:10px;color:var(--gold);margin-bottom:4px}
 .detected-note p{font-size:8px;color:var(--dm);line-height:1.6}
-
-/* Overlay */
 .ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,8,10,.85);z-index:20;transition:opacity .4s;pointer-events:none}
 .ov.hide{opacity:0}
 .ov h2{font-size:13px;color:var(--acc);margin-bottom:5px;letter-spacing:1px;text-align:center}
 .ov p{font-size:9px;color:var(--dm);line-height:1.6;max-width:220px;text-align:center}
-
 .ctrl{display:flex;align-items:center;justify-content:center;padding:10px;gap:12px;border-top:1px solid var(--bd);background:var(--sf)}
 .ctrl .mic{width:46px;height:46px;border-radius:50%;border:2px solid var(--acc);background:transparent;color:var(--acc);cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative}
 .ctrl .mic.on{background:var(--acc);color:#000;box-shadow:0 0 12px var(--gl)}
@@ -107,14 +89,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 </head>
 <body>
 <div id="app">
-  <div class="hdr">
-    <div class="logo">HUM<span>→</span>TAB</div>
-    <div class="tog" id="modeTog">
-      <button class="on" onclick="setMode('tab')">TAB</button>
-      <button onclick="setMode('chord')">CHORD</button>
-      <button onclick="setMode('learn')">LEARN</button>
-    </div>
-  </div>
+  <div class="hdr"><div class="logo">HUM<span>→</span>TAB</div><div class="tog" id="mT"><button class="on" onclick="setMode('tab')">TAB</button><button onclick="setMode('chord')">CHORD</button><button onclick="setMode('learn')">LEARN</button></div></div>
   <div class="srow">
     <div class="chip on" id="cMic" onclick="setIn('mic')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/></svg>MIC</div>
     <div class="chip" id="cAud" onclick="setIn('audio')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>AUDIO</div>
@@ -122,80 +97,24 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
     <div class="sg"><label>感度</label><input type="range" min="1" max="10" value="7" step="1" oninput="sens=+this.value;this.nextElementSibling.textContent=this.value"><span class="sv">7</span></div>
     <div class="sg"><label>窓</label><input type="range" min="500" max="3000" value="1500" step="100" oninput="cWin=+this.value;this.nextElementSibling.textContent=(cWin/1000).toFixed(1)+'s'"><span class="sv">1.5s</span></div>
   </div>
-  <div class="pitch">
-    <div><div class="note" id="pNote">--</div><div><span class="hz" id="pHz">---</span><span class="hzl"> Hz</span></div></div>
-    <div><div class="lvl"><div class="lvl-bar" id="lvlBar"></div></div></div>
-  </div>
-  <div class="tbar"><span class="key-b" id="keyB">Key: --</span><span class="pat-name" id="patN"></span></div>
-  <div class="cbar" id="cbar"><span class="lbl">進行</span></div>
-  <div class="pred" id="pred"><span class="plbl">次→</span></div>
-  <div class="dgr" id="dgr"><div class="inner"><div class="dn" id="dN">--</div><canvas id="dC" width="120" height="90"></canvas><div class="di" id="dI"></div></div></div>
-  <div class="main">
-    <canvas id="tc"></canvas>
-    <div class="learn-panel" id="learnP"></div>
-    <div class="ov" id="ov"><div><h2>HUM → TAB</h2><p>マイクボタンで鼻歌・音源を入力<br><br>コード進行を解析し<br>次のコードを理論で予測します<br><br>LEARNタブで進行パターンを学べます</p></div></div>
-  </div>
-  <div class="ctrl">
-    <button class="btn" onclick="clearAll()">CLEAR</button>
-    <button class="mic" id="mic" onclick="toggle()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
-    <button class="btn" onclick="doExport()">EXPORT</button>
-  </div>
+  <div class="pitch"><div><div class="note" id="pN">--</div><div><span class="hz" id="pH">---</span><span class="hzl"> Hz</span></div></div><div><div class="lvl"><div class="lvl-bar" id="lB"></div></div></div></div>
+  <div class="tbar"><span class="key-b" id="kB">Key: --</span><span class="pat-name" id="paN"></span></div>
+  <div class="cbar" id="cb"><span class="lbl">進行</span></div>
+  <div class="pred" id="pr"><span class="plbl">次→</span></div>
+  <div class="dgr" id="dg"><div class="inner"><div class="dn" id="dN">--</div><canvas id="dC" width="120" height="90"></canvas><div class="di" id="dI"></div></div></div>
+  <div class="main"><canvas id="tc"></canvas><div class="learn-panel" id="lP"></div><div class="ov" id="ov"><div><h2>HUM → TAB</h2><p>マイクボタンで入力開始<br><br>理論予測で次のコードを絞り込み<br>音で確定します<br><br>LEARNタブで進行パターンを学べます</p></div></div></div>
+  <div class="ctrl"><button class="btn" onclick="clearAll()">CLEAR</button><button class="mic" id="mic" onclick="toggle()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button><button class="btn" onclick="doExport()">EXPORT</button></div>
 </div>
 <script>
-// ═══════════════════════════════════════
-// CONSTANTS
-// ═══════════════════════════════════════
 const NM=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const TUN=[64,59,55,50,45,40];
 const SC=['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#74c0fc','#b197fc'];
 const SL=['e','B','G','D','A','E'];
 
-// ═══════════════════════════════════════
-// MUSIC THEORY ENGINE
-// ═══════════════════════════════════════
+// ═══ THEORY ENGINE ═══
+const DIA=[{d:'I',o:0,t:''},{d:'ii',o:2,t:'m'},{d:'iii',o:4,t:'m'},{d:'IV',o:5,t:''},{d:'V',o:7,t:''},{d:'vi',o:9,t:'m'},{d:'vii°',o:11,t:'dim'}];
 
-// Diatonic chords for each key (major scale)
-// I ii iii IV V vi vii°
-const DIATONIC_MAJOR = [
-  {deg:'I',   offset:0, type:''},
-  {deg:'ii',  offset:2, type:'m'},
-  {deg:'iii', offset:4, type:'m'},
-  {deg:'IV',  offset:5, type:''},
-  {deg:'V',   offset:7, type:''},
-  {deg:'vi',  offset:9, type:'m'},
-  {deg:'vii°',offset:11,type:'dim'},
-];
-
-// Common progressions (as degree arrays)
-const PATTERNS = [
-  {name:'カノン進行', degs:['I','V','vi','iii','IV','I','IV','V'],
-   desc:'パッヘルベルのカノンに由来。J-POPで最も多用される進行。安定感と美しさのバランスが絶妙。',
-   ex:'クリスマスイブ(山下達郎)、さくら(森山直太朗)、Lemon(米津玄師)'},
-  {name:'王道進行', degs:['IV','V','iii','vi'],
-   desc:'サビで使われることが多い。IVから始まるのがポイントで、期待感→解決→切なさという感情の流れを作る。',
-   ex:'残酷な天使のテーゼ、小さな恋のうた、Pretender(Official髭男dism)'},
-  {name:'小室進行', degs:['vi','IV','V','I'],
-   desc:'小室哲哉の楽曲で多用。マイナーから始まりメジャーで解決する、哀愁と力強さの対比。',
-   ex:'Get Wild(TM NETWORK)、LOVE MACHINE(モーニング娘。)'},
-  {name:'丸サ進行 (Just The Two Of Us)', degs:['IV','iii','vi','I'],
-   desc:'IVから始まりiiiを経由してviに落ちる。おしゃれで浮遊感のある響き。シティポップやR&Bに多い。',
-   ex:'Plastic Love(竹内まりや)、夜に駆ける(YOASOBI)'},
-  {name:'ブルース進行', degs:['I','I','IV','IV','V','IV','I','V'],
-   desc:'ブルースの基本12小節進行。ロック、R&Bの土台。シンプルだが力強い。',
-   ex:'Johnny B. Goode(Chuck Berry)、Rock Around The Clock'},
-  {name:'レットイットビー進行', degs:['I','V','vi','IV'],
-   desc:'世界で最も有名なコード進行の一つ。安心感と切なさが共存する普遍的な響き。',
-   ex:'Let It Be(The Beatles)、With Or Without You(U2)'},
-  {name:'ポップパンク進行', degs:['I','V','vi','IV'],
-   desc:'上記と同じだがテンポが速い。パンクロックやポップロックの定番。',
-   ex:'Basket Case(Green Day)、Complicated(Avril Lavigne)'},
-  {name:'循環コード', degs:['I','vi','IV','V'],
-   desc:'50年代ポップスの基本形。循環するため永遠に繰り返せる。安定した明るさ。',
-   ex:'Stand By Me(Ben E. King)、上を向いて歩こう(坂本九)'},
-];
-
-// Common chord transitions (probability-like weights)
-const TRANSITIONS = {
+const TRANS={
   'I':   [{to:'IV',w:5},{to:'V',w:5},{to:'vi',w:4},{to:'ii',w:3},{to:'iii',w:2}],
   'ii':  [{to:'V',w:5},{to:'IV',w:3},{to:'vii°',w:2}],
   'iii': [{to:'vi',w:5},{to:'IV',w:4},{to:'ii',w:2}],
@@ -205,82 +124,42 @@ const TRANSITIONS = {
   'vii°':[{to:'I',w:5},{to:'iii',w:3}],
 };
 
-// Detect key from chord names
-function detectKey(chordNames){
-  if(chordNames.length<2) return null;
-  let bestKey=-1, bestScore=0;
-  for(let k=0;k<12;k++){
-    let score=0;
-    const diatonics=DIATONIC_MAJOR.map(d=>NM[(k+d.offset)%12]+d.type);
-    for(const cn of chordNames){
-      // Normalize: treat 7th as major for matching
-      const base=cn.replace('7','');
-      if(diatonics.some(dc=>dc===base||dc===cn)) score++;
-    }
-    if(score>bestScore){bestScore=score;bestKey=k}
-  }
-  return bestScore>=2?bestKey:null;
-}
+const PATS=[
+  {name:'カノン進行',degs:['I','V','vi','iii','IV','I','IV','V'],desc:'J-POP最多。安定感と美しさのバランス。',ex:'クリスマスイブ, Lemon'},
+  {name:'王道進行',degs:['IV','V','iii','vi'],desc:'サビで多用。期待感→解決→切なさの流れ。',ex:'残酷な天使のテーゼ, Pretender'},
+  {name:'小室進行',degs:['vi','IV','V','I'],desc:'マイナーから始まりメジャーで解決。哀愁と力強さ。',ex:'Get Wild, LOVE MACHINE'},
+  {name:'丸サ進行',degs:['IV','iii','vi','I'],desc:'おしゃれで浮遊感。シティポップ/R&B。',ex:'Plastic Love, 夜に駆ける'},
+  {name:'ブルース進行',degs:['I','I','IV','IV','V','IV','I','V'],desc:'ロック/R&Bの土台。',ex:'Johnny B. Goode'},
+  {name:'レットイットビー',degs:['I','V','vi','IV'],desc:'世界で最も有名な進行の一つ。',ex:'Let It Be, With Or Without You'},
+  {name:'循環コード',degs:['I','vi','IV','V'],desc:'50年代ポップスの基本形。永遠にループ。',ex:'Stand By Me, 上を向いて歩こう'},
+];
 
-// Get degree of a chord in a key
-function getDegree(chordName, key){
-  if(key===null) return '';
-  const base=chordName.replace('7','');
-  for(const d of DIATONIC_MAJOR){
-    const expected=NM[(key+d.offset)%12]+d.type;
-    if(expected===base||expected===chordName) return d.deg;
-  }
-  // Check dominant 7th
-  const v=NM[(key+7)%12]+'7';
-  if(chordName===v) return 'V7';
-  return '?';
+function detectKey(names){
+  if(names.length<2)return null;
+  let bk=-1,bs=0;
+  for(let k=0;k<12;k++){let sc=0;const dias=DIA.map(d=>NM[(k+d.o)%12]+d.t);for(const cn of names){const base=cn.replace('7','');if(dias.some(dc=>dc===base||dc===cn))sc++}if(sc>bs){bs=sc;bk=k}}
+  return bs>=2?bk:null;
 }
-
-// Predict next chords given current degree and key
-function predictNext(currentDeg, key){
-  if(key===null||!currentDeg) return [];
-  const baseDeg=currentDeg.replace('7','');
-  const trans=TRANSITIONS[baseDeg];
-  if(!trans) return [];
-  return trans.sort((a,b)=>b.w-a.w).slice(0,4).map(t=>{
-    const d=DIATONIC_MAJOR.find(x=>x.deg===t.to);
-    if(!d) return null;
-    const name=NM[(key+d.offset)%12]+d.type;
-    return {name, deg:t.to, weight:t.w};
+function getDeg(name,key){
+  if(key===null)return'';const base=name.replace('7','');
+  for(const d of DIA){if(NM[(key+d.o)%12]+d.t===base||NM[(key+d.o)%12]+d.t===name)return d.d}
+  if(name===NM[(key+7)%12]+'7')return'V7';return'?';
+}
+function predictNext(deg,key){
+  if(key===null||!deg)return[];
+  const bd=deg.replace('7','');const tr=TRANS[bd];if(!tr)return[];
+  return tr.sort((a,b)=>b.w-a.w).slice(0,5).map(t=>{
+    const d=DIA.find(x=>x.d===t.to);if(!d)return null;
+    return{name:NM[(key+d.o)%12]+d.t,deg:t.to,weight:t.w};
   }).filter(Boolean);
 }
-
-// Match detected progression against known patterns
-function matchPattern(degrees){
-  if(degrees.length<3) return null;
-  const degStr=degrees.join(',');
-  let bestMatch=null, bestLen=0;
-  for(const pat of PATTERNS){
-    for(let len=Math.min(degrees.length,pat.degs.length);len>=3;len--){
-      const patSub=pat.degs.slice(0,len).join(',');
-      // Check if our progression contains this pattern
-      if(degStr.includes(patSub)&&len>bestLen){
-        bestLen=len;
-        bestMatch=pat;
-      }
-    }
-    // Also check cycling patterns
-    if(degrees.length>=pat.degs.length){
-      const patStr=pat.degs.join(',');
-      // Check last N degrees
-      const tail=degrees.slice(-pat.degs.length).join(',');
-      if(tail===patStr&&pat.degs.length>bestLen){
-        bestLen=pat.degs.length;
-        bestMatch=pat;
-      }
-    }
-  }
-  return bestMatch;
+function matchPat(degs){
+  if(degs.length<3)return null;const ds=degs.join(',');let bm=null,bl=0;
+  for(const p of PATS){for(let l=Math.min(degs.length,p.degs.length);l>=3;l--){const ps=p.degs.slice(0,l).join(',');if(ds.includes(ps)&&l>bl){bl=l;bm=p}}if(degs.length>=p.degs.length){const t=degs.slice(-p.degs.length).join(',');if(t===p.degs.join(',')&&p.degs.length>bl){bl=p.degs.length;bm=p}}}
+  return bm;
 }
 
-// ═══════════════════════════════════════
-// CHORD VOICINGS & DETECTION
-// ═══════════════════════════════════════
+// ═══ VOICINGS ═══
 const VOI={
 'C':[[-1,3,2,0,1,0]],'D':[[-1,-1,0,2,3,2]],'E':[[0,2,2,1,0,0]],'F':[[1,3,3,2,1,1]],
 'G':[[3,2,0,0,0,3]],'A':[[-1,0,2,2,2,0]],'B':[[-1,2,4,4,4,2]],
@@ -295,9 +174,11 @@ const VOI={
 'A#m':[[-1,1,3,3,2,1]],'Dbm':[[-1,4,6,6,5,4]],'Ebm':[[-1,-1,1,3,4,2]],'Gbm':[[2,4,4,2,2,2]],
 'Abm':[[4,6,6,4,4,4]],'Bbm':[[-1,1,3,3,2,1]],
 };
-
 const CPAT={'':[0,4,7],'m':[0,3,7],'7':[0,4,7,10]};
 
+// ═══ THEORY-FIRST CHORD DETECTION ═══
+// The key insight: predicted chords get a LARGE boost so ambiguous audio
+// resolves to the theoretically likely chord
 function detectChord(midis, predictions){
   if(midis.length<2) return null;
   const pc=[...new Set(midis.map(m=>((Math.round(m)%12)+12)%12))];
@@ -307,268 +188,196 @@ function detectChord(midis, predictions){
   for(let r=0;r<12;r++){
     for(const[sf,pt]of Object.entries(CPAT)){
       const cpc=pt.map(p=>(r+p)%12);
-      const h=pc.filter(p=>cpc.includes(p)).length;
-      const s=h/Math.max(pc.length,cpc.length);
-      if(h>=2&&s>.4){
-        const name=NM[r]+sf;
-        // Boost score if this chord is in predictions
-        const boost=predictions.some(p=>p.name===name)?0.15:0;
-        candidates.push({name,notes:cpc.map(p=>NM[p]),score:s+boost});
+      const hits=pc.filter(p=>cpc.includes(p)).length;
+      const rawScore=hits/Math.max(pc.length,cpc.length);
+      if(hits<2||rawScore<.3) continue;
+
+      const name=NM[r]+sf;
+
+      // Theory boost: strong for predicted chords, moderate for diatonic
+      let boost=0;
+      const pred=predictions.find(p=>p.name===name);
+      if(pred){
+        // Scale boost by prediction weight: w=5 gives +0.35, w=2 gives +0.14
+        boost=pred.weight*0.07;
+      } else if(currentKey!==null){
+        // Small boost for any diatonic chord (even if not predicted)
+        const deg=getDeg(name,currentKey);
+        if(deg&&deg!=='?') boost=0.05;
       }
+
+      candidates.push({name,notes:cpc.map(p=>NM[p]),score:rawScore+boost,rawScore,boost});
     }
   }
+
   candidates.sort((a,b)=>b.score-a.score);
-  return candidates.length>0&&candidates[0].score>.45?candidates[0]:null;
+
+  // If top candidate has reasonable raw score, accept it
+  // The theory boost helps break ties and resolve ambiguity
+  if(candidates.length>0&&candidates[0].score>.45){
+    return candidates[0];
+  }
+  return null;
 }
 
-// ═══════════════════════════════════════
-// POSITION OPTIMIZER
-// ═══════════════════════════════════════
-function allPos(midi){const n=Math.round(midi),r=[];for(let i=0;i<6;i++){const f=n-TUN[i];if(f>=0&&f<=19)r.push({str:i,fret:f})}return r}
-function pickPos(midi,ps,pf){
-  const c=allPos(midi);if(!c.length)return null;
-  if(ps<0){c.sort((a,b)=>(a.fret*2+Math.abs(a.str-2)*.5)-(b.fret*2+Math.abs(b.str-2)*.5));return c[0]}
-  c.sort((a,b)=>{const da=Math.abs(a.fret-pf)*3+(a.str===ps?5:0)+Math.abs(a.str-ps)*.5;const db=Math.abs(b.fret-pf)*3+(b.str===ps?5:0)+Math.abs(b.str-ps)*.5;return da-db});return c[0];
-}
-function reOpt(notes,start){const end=Math.min(notes.length,start+5);let ps=start>0?notes[start-1].str:-1,pf=start>0?notes[start-1].fret:-1;for(let i=start;i<end;i++){const p=pickPos(notes[i].midi,ps,pf);if(p){notes[i].str=p.str;notes[i].fret=p.fret;notes[i].color=SC[p.str];ps=p.str;pf=p.fret}}}
+// ═══ POSITION ═══
+function allPos(m){const n=Math.round(m),r=[];for(let i=0;i<6;i++){const f=n-TUN[i];if(f>=0&&f<=19)r.push({str:i,fret:f})}return r}
+function pickPos(m,ps,pf){const c=allPos(m);if(!c.length)return null;if(ps<0){c.sort((a,b)=>(a.fret*2+Math.abs(a.str-2)*.5)-(b.fret*2+Math.abs(b.str-2)*.5));return c[0]}c.sort((a,b)=>{const da=Math.abs(a.fret-pf)*3+(a.str===ps?5:0)+Math.abs(a.str-ps)*.5;const db=Math.abs(b.fret-pf)*3+(b.str===ps?5:0)+Math.abs(b.str-ps)*.5;return da-db});return c[0]}
+function reOpt(ns,s){const e=Math.min(ns.length,s+5);let ps=s>0?ns[s-1].str:-1,pf=s>0?ns[s-1].fret:-1;for(let i=s;i<e;i++){const p=pickPos(ns[i].midi,ps,pf);if(p){ns[i].str=p.str;ns[i].fret=p.fret;ns[i].color=SC[p.str];ps=p.str;pf=p.fret}}}
 
-// ═══════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════
+// ═══ STATE ═══
 let mode='tab',rec=false,actx=null,ana=null,strm=null;
 let notes=[],t0=0,prog=[],cWin=1500,sens=7;
 let lastMidi=-1,lastT=0,selC=-1;
 let pBuf=[],chordBuf=[],lastChordTime=0;
 let currentKey=null,currentPredictions=[];
-const MIN_CHORD_INT=600;
+const MCI=600;
 
-function getSensP(){const t=(sens-1)/9;return{rms:.025*(1-t)+.002*t,corr:.7*(1-t)+.15*t}}
-function stableP(raw){pBuf.push(raw);if(pBuf.length>3)pBuf.shift();if(pBuf.length<2)return raw;const s=[...pBuf].sort((a,b)=>a-b);return s[Math.floor(s.length/2)]}
+function getSP(){const t=(sens-1)/9;return{rms:.025*(1-t)+.002*t,corr:.7*(1-t)+.15*t}}
+function stP(r){pBuf.push(r);if(pBuf.length>3)pBuf.shift();if(pBuf.length<2)return r;const s=[...pBuf].sort((a,b)=>a-b);return s[Math.floor(s.length/2)]}
 
-// ═══════════════════════════════════════
-// AUTOCORRELATION
-// ═══════════════════════════════════════
+// ═══ AUTOCORRELATION ═══
 function acorr(buf,sr){
-  const N=buf.length;let rms=0;
-  for(let i=0;i<N;i++)rms+=buf[i]*buf[i];
-  rms=Math.sqrt(rms/N);
-  document.getElementById('lvlBar').style.width=Math.min(100,rms*500)+'%';
-  const sp=getSensP();if(rms<sp.rms)return-1;
+  const N=buf.length;let rms=0;for(let i=0;i<N;i++)rms+=buf[i]*buf[i];rms=Math.sqrt(rms/N);
+  document.getElementById('lB').style.width=Math.min(100,rms*500)+'%';
+  const sp=getSP();if(rms<sp.rms)return-1;
   const hN=Math.floor(N/2),c=new Float32Array(hN);
   for(let tau=0;tau<hN;tau++){let s=0;for(let i=0;i<N-tau;i++)s+=buf[i]*buf[i+tau];c[tau]=s}
-  const c0=c[0];if(c0===0)return-1;
-  for(let i=0;i<hN;i++)c[i]/=c0;
+  const c0=c[0];if(!c0)return-1;for(let i=0;i<hN;i++)c[i]/=c0;
   let fd=1;while(fd<hN-1&&c[fd]>.1)fd++;
-  let bT=-1,bV=-1;
-  for(let i=fd;i<hN-1;i++){if(c[i]>=c[i-1]&&c[i]>=c[i+1]&&c[i]>bV){bV=c[i];bT=i}}
+  let bT=-1,bV=-1;for(let i=fd;i<hN-1;i++)if(c[i]>=c[i-1]&&c[i]>=c[i+1]&&c[i]>bV){bV=c[i];bT=i}
   if(bT<1||bV<sp.corr)return-1;
   if(bT>0&&bT<hN-1){const a=c[bT-1],b=c[bT],cv=c[bT+1],dn=2*(a-2*b+cv);if(Math.abs(dn)>.0001){const d=(a-cv)/dn;if(Math.abs(d)<1)bT+=d}}
   const f=sr/bT;return(f<65||f>1100)?-1:f;
 }
 
-// ═══════════════════════════════════════
-// AUDIO
-// ═══════════════════════════════════════
-async function startA(){
-  actx=new(window.AudioContext||window.webkitAudioContext)();
-  strm=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:true}});
-  const s=actx.createMediaStreamSource(strm);ana=actx.createAnalyser();ana.fftSize=4096;s.connect(ana);
-  t0=performance.now();rec=true;pBuf=[];chordBuf=[];lastChordTime=0;
-  document.getElementById('mic').classList.add('on');document.getElementById('ov').classList.add('hide');loop();
-}
-function stopA(){rec=false;document.getElementById('mic').classList.remove('on');document.getElementById('lvlBar').style.width='0%';if(strm){strm.getTracks().forEach(t=>t.stop());strm=null}if(actx){actx.close();actx=null}}
-function toggle(){rec?stopA():startA().catch(e=>console.error(e))}
+// ═══ AUDIO ═══
+async function startA(){actx=new(window.AudioContext||window.webkitAudioContext)();strm=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:true}});const s=actx.createMediaStreamSource(strm);ana=actx.createAnalyser();ana.fftSize=4096;s.connect(ana);t0=performance.now();rec=true;pBuf=[];chordBuf=[];lastChordTime=0;document.getElementById('mic').classList.add('on');document.getElementById('ov').classList.add('hide');loop()}
+function stopA(){rec=false;document.getElementById('mic').classList.remove('on');document.getElementById('lB').style.width='0%';if(strm){strm.getTracks().forEach(t=>t.stop());strm=null}if(actx){actx.close();actx=null}}
+function toggle(){rec?stopA():startA().catch(console.error)}
 
-// ═══════════════════════════════════════
-// MAIN LOOP
-// ═══════════════════════════════════════
+// ═══ MAIN LOOP ═══
 function loop(){
   if(!rec)return;
   const buf=new Float32Array(ana.fftSize);ana.getFloatTimeDomainData(buf);
-  const rawFreq=acorr(buf,actx.sampleRate);const now=performance.now();
-  if(rawFreq>0){
-    const rawMidi=69+12*Math.log2(rawFreq/440),midi=stableP(rawMidi),rm=Math.round(midi);
-    const nn=NM[((rm%12)+12)%12];
-    document.getElementById('pNote').textContent=nn;document.getElementById('pNote').classList.add('on');
-    document.getElementById('pHz').textContent=rawFreq.toFixed(0);
+  const rf=acorr(buf,actx.sampleRate);const now=performance.now();
+  if(rf>0){
+    const rm0=69+12*Math.log2(rf/440),midi=stP(rm0),rm=Math.round(midi),nn=NM[((rm%12)+12)%12];
+    document.getElementById('pN').textContent=nn;document.getElementById('pN').classList.add('on');
+    document.getElementById('pH').textContent=rf.toFixed(0);
     const gap=rm===lastMidi?400:150;
     if(rm!==lastMidi||(now-lastT)>gap){
-      const el=(now-t0)/1000,prev=notes.length>0?notes[notes.length-1]:null;
+      const el=(now-t0)/1000,prev=notes.length?notes[notes.length-1]:null;
       const pos=pickPos(midi,prev?prev.str:-1,prev?prev.fret:-1);
       if(pos){notes.push({time:el,midi:rm,str:pos.str,fret:pos.fret,noteName:nn,color:SC[pos.str]});if(notes.length>2)reOpt(notes,Math.max(0,notes.length-5));lastMidi=rm;lastT=now}
     }
     chordBuf.push({midi:rm,time:now});chordBuf=chordBuf.filter(n=>now-n.time<cWin);
-    if(now-lastChordTime>MIN_CHORD_INT){
+    if(now-lastChordTime>MCI){
       const uq=[...new Set(chordBuf.map(n=>n.midi))];
+      // Pass current predictions to chord detection for theory-first matching
       const ch=detectChord(uq,currentPredictions);
       if(ch){
-        const last=prog.length>0?prog[prog.length-1]:null;
+        const last=prog.length?prog[prog.length-1]:null;
         if(!last||last.name!==ch.name){
           const el=(now-t0)/1000,v=VOI[ch.name]?VOI[ch.name][0]:null;
           prog.push({name:ch.name,time:el,voicing:v,notes:ch.notes});
           lastChordTime=now;chordBuf=[];
-          updateTheory();updStrip();updatePredictions();
+          updTheory();updStrip();updPred();
           if(mode==='learn')renderLearn();
         }
       }
     }
   } else {
-    document.getElementById('pNote').classList.remove('on');
-    if(chordBuf.length>0&&now-chordBuf[chordBuf.length-1].time>300)chordBuf=[];
+    document.getElementById('pN').classList.remove('on');
+    if(chordBuf.length&&now-chordBuf[chordBuf.length-1].time>300)chordBuf=[];
   }
   requestAnimationFrame(loop);
 }
 
-// ═══════════════════════════════════════
-// THEORY UPDATES
-// ═══════════════════════════════════════
-function updateTheory(){
+// ═══ THEORY ═══
+function updTheory(){
   const names=prog.map(c=>c.name);
   currentKey=detectKey(names);
-  const kb=document.getElementById('keyB');
-  kb.textContent=currentKey!==null?'Key: '+NM[currentKey]:'Key: --';
-
-  // Get degrees
-  const degs=prog.map(c=>getDegree(c.name,currentKey));
-  prog.forEach((c,i)=>c.degree=degs[i]);
-
-  // Pattern match
-  const validDegs=degs.filter(d=>d&&d!=='?');
-  const pat=matchPattern(validDegs);
-  document.getElementById('patN').textContent=pat?pat.name:'';
+  document.getElementById('kB').textContent=currentKey!==null?'Key: '+NM[currentKey]:'Key: --';
+  prog.forEach(c=>c.degree=getDeg(c.name,currentKey));
+  const vd=prog.map(c=>c.degree).filter(d=>d&&d!=='?');
+  const pat=matchPat(vd);
+  document.getElementById('paN').textContent=pat?pat.name:'';
 }
-
-function updatePredictions(){
-  if(prog.length===0||currentKey===null){currentPredictions=[];renderPred();return}
-  const lastDeg=prog[prog.length-1].degree;
-  currentPredictions=predictNext(lastDeg,currentKey);
-  renderPred();
+function updPred(){
+  if(!prog.length||currentKey===null){currentPredictions=[];renderPr();return}
+  currentPredictions=predictNext(prog[prog.length-1].degree,currentKey);
+  renderPr();
 }
-
-function renderPred(){
-  const el=document.getElementById('pred');
+function renderPr(){
+  const el=document.getElementById('pr');
   let h='<span class="plbl">次→</span>';
-  if(currentPredictions.length===0){h+='<span style="font-size:7px;color:var(--dm)">検出中...</span>'}
-  else{currentPredictions.forEach(p=>{h+=`<span class="pb" onclick="forceChord('${p.name}')">${p.name} <span class="pd">${p.deg}</span></span>`})}
+  if(!currentPredictions.length){h+='<span style="font-size:7px;color:var(--dm)">検出中...</span>'}
+  else{currentPredictions.forEach((p,i)=>{
+    const cls=i===0?'pb hot':'pb';
+    h+=`<span class="${cls}" onclick="forceChord('${p.name}')">${p.name} <span class="pd">${p.deg}</span></span>`;
+  })}
   el.innerHTML=h;
 }
-
 function forceChord(name){
-  const now=performance.now(),el=(now-t0)/1000;
-  const v=VOI[name]?VOI[name][0]:null;
-  const last=prog.length>0?prog[prog.length-1]:null;
+  const now=performance.now(),el=(now-t0)/1000,v=VOI[name]?VOI[name][0]:null;
+  const last=prog.length?prog[prog.length-1]:null;
   if(last&&last.name===name)return;
   prog.push({name,time:el,voicing:v,notes:[]});
   lastChordTime=now;chordBuf=[];
-  updateTheory();updStrip();updatePredictions();
+  updTheory();updStrip();updPred();
   if(mode==='learn')renderLearn();
 }
 
-// ═══════════════════════════════════════
-// CHORD STRIP
-// ═══════════════════════════════════════
+// ═══ STRIP ═══
 function updStrip(){
-  const el=document.getElementById('cbar');
+  const el=document.getElementById('cb');
   let h='<span class="lbl">進行</span>';
-  prog.forEach((c,i)=>{
-    if(i>0)h+='<span class="ca">→</span>';
-    const cls=i===prog.length-1?'ci now':i===selC?'ci sel':'ci';
-    const deg=c.degree||'';
-    h+=`<span class="${cls}" onclick="showDgr(${i})"><span class="cn">${c.name}</span><span class="cd">${deg}</span></span>`;
-  });
+  prog.forEach((c,i)=>{if(i>0)h+='<span class="ca">→</span>';const cls=i===prog.length-1?'ci now':i===selC?'ci sel':'ci';h+=`<span class="${cls}" onclick="showDg(${i})"><span class="cn">${c.name}</span><span class="cd">${c.degree||''}</span></span>`});
   el.innerHTML=h;el.scrollLeft=el.scrollWidth;
-  if(prog.length>0)showDgr(prog.length-1);
+  if(prog.length)showDg(prog.length-1);
 }
 
-// ═══════════════════════════════════════
-// DIAGRAM
-// ═══════════════════════════════════════
-function showDgr(i){
+// ═══ DIAGRAM ═══
+function showDg(i){
   selC=i;const c=prog[i];if(!c)return;
-  document.getElementById('dgr').classList.add('open');document.getElementById('dN').textContent=c.name;
+  document.getElementById('dg').classList.add('open');document.getElementById('dN').textContent=c.name;
   document.querySelectorAll('.ci').forEach((e,j)=>e.className=j===i?'ci sel':j===prog.length-1?'ci now':'ci');
-  const inf=document.getElementById('dI');
-  const degStr=c.degree?` (${c.degree})`:'';
-  if(c.voicing){inf.innerHTML=`${c.name}${degStr}<br>E A D G B e<br>${c.voicing.map(f=>f===-1?'x':f).join(' ')}<br>構成音: ${c.notes.join('·')}`;drawDgr(c.voicing)}
-  else{inf.innerHTML=`${c.name}${degStr}<br>構成音: ${c.notes.join('·')}`;drawDgrE()}
+  const inf=document.getElementById('dI'),ds=c.degree?' ('+c.degree+')':'';
+  if(c.voicing){inf.innerHTML=`${c.name}${ds}<br>E A D G B e<br>${c.voicing.map(f=>f===-1?'x':f).join(' ')}<br>構成音: ${(c.notes||[]).join('·')}`;drawDg(c.voicing)}
+  else{inf.innerHTML=`${c.name}${ds}`;drawDgE()}
 }
+function drawDg(v){const cv=document.getElementById('dC'),c=cv.getContext('2d'),d=window.devicePixelRatio||1;cv.width=120*d;cv.height=90*d;cv.style.width='120px';cv.style.height='90px';c.scale(d,d);c.clearRect(0,0,120,90);const L=18,T=14,W=84,H=64,ss=W/5,fs=H/4;const pl=v.filter(f=>f>0);let mf=pl.length?Math.min(...pl):1;if(mf<=2)mf=1;if(mf===1){c.fillStyle='#555';c.fillRect(L-1,T-1,W+2,2)}else{c.fillStyle='#444';c.font='6px JetBrains Mono';c.textAlign='right';c.textBaseline='middle';c.fillText(mf+'fr',L-3,T+fs/2)}c.strokeStyle='#252530';c.lineWidth=1;for(let i=0;i<6;i++){c.beginPath();c.moveTo(L+i*ss,T);c.lineTo(L+i*ss,T+H);c.stroke()}for(let i=0;i<=4;i++){c.beginPath();c.moveTo(L,T+i*fs);c.lineTo(L+W,T+i*fs);c.stroke()}for(let i=0;i<6;i++){const x=L+i*ss,f=v[i];if(f===-1){c.fillStyle='#444';c.font='bold 7px JetBrains Mono';c.textAlign='center';c.textBaseline='bottom';c.fillText('×',x,T-2)}else if(f===0){c.strokeStyle='#777';c.lineWidth=1;c.beginPath();c.arc(x,T-4,3,0,Math.PI*2);c.stroke()}else{const y=T+(f-mf)*fs+fs/2;c.fillStyle=SC[5-i];c.beginPath();c.arc(x,y,4.5,0,Math.PI*2);c.fill();c.fillStyle='#000';c.font='bold 5px JetBrains Mono';c.textAlign='center';c.textBaseline='middle';c.fillText(f,x,y)}}c.fillStyle='#333';c.font='5px JetBrains Mono';c.textAlign='center';c.textBaseline='top';['E','A','D','G','B','e'].forEach((s,i)=>c.fillText(s,L+i*ss,T+H+2))}
+function drawDgE(){const cv=document.getElementById('dC'),c=cv.getContext('2d'),d=window.devicePixelRatio||1;cv.width=120*d;cv.height=90*d;cv.style.width='120px';cv.style.height='90px';c.scale(d,d);c.clearRect(0,0,120,90);c.fillStyle='#333';c.font='8px JetBrains Mono';c.textAlign='center';c.textBaseline='middle';c.fillText('—',60,45)}
 
-function drawDgr(v){
-  const cv=document.getElementById('dC'),c=cv.getContext('2d'),d=window.devicePixelRatio||1;
-  cv.width=120*d;cv.height=90*d;cv.style.width='120px';cv.style.height='90px';
-  c.scale(d,d);c.clearRect(0,0,120,90);
-  const L=18,T=14,W=84,H=64,ss=W/5,fs=H/4;
-  const played=v.filter(f=>f>0);let mf=played.length?Math.min(...played):1;if(mf<=2)mf=1;
-  if(mf===1){c.fillStyle='#555';c.fillRect(L-1,T-1,W+2,2)}
-  else{c.fillStyle='#444';c.font='6px JetBrains Mono';c.textAlign='right';c.textBaseline='middle';c.fillText(mf+'fr',L-3,T+fs/2)}
-  c.strokeStyle='#252530';c.lineWidth=1;
-  for(let i=0;i<6;i++){c.beginPath();c.moveTo(L+i*ss,T);c.lineTo(L+i*ss,T+H);c.stroke()}
-  for(let i=0;i<=4;i++){c.beginPath();c.moveTo(L,T+i*fs);c.lineTo(L+W,T+i*fs);c.stroke()}
-  for(let i=0;i<6;i++){const x=L+i*ss,f=v[i];if(f===-1){c.fillStyle='#444';c.font='bold 7px JetBrains Mono';c.textAlign='center';c.textBaseline='bottom';c.fillText('×',x,T-2)}else if(f===0){c.strokeStyle='#777';c.lineWidth=1;c.beginPath();c.arc(x,T-4,3,0,Math.PI*2);c.stroke()}else{const y=T+(f-mf)*fs+fs/2;c.fillStyle=SC[5-i];c.beginPath();c.arc(x,y,4.5,0,Math.PI*2);c.fill();c.fillStyle='#000';c.font='bold 5px JetBrains Mono';c.textAlign='center';c.textBaseline='middle';c.fillText(f,x,y)}}
-  c.fillStyle='#333';c.font='5px JetBrains Mono';c.textAlign='center';c.textBaseline='top';
-  ['E','A','D','G','B','e'].forEach((s,i)=>c.fillText(s,L+i*ss,T+H+2));
-}
-function drawDgrE(){const cv=document.getElementById('dC'),c=cv.getContext('2d'),d=window.devicePixelRatio||1;cv.width=120*d;cv.height=90*d;cv.style.width='120px';cv.style.height='90px';c.scale(d,d);c.clearRect(0,0,120,90);c.fillStyle='#333';c.font='8px JetBrains Mono';c.textAlign='center';c.textBaseline='middle';c.fillText('—',60,45)}
-
-// ═══════════════════════════════════════
-// LEARN TAB
-// ═══════════════════════════════════════
+// ═══ LEARN ═══
 function renderLearn(){
-  const el=document.getElementById('learnP');
-  let h='';
-
-  // If we have a detected progression, show analysis
+  const el=document.getElementById('lP');let h='';
   if(prog.length>=2&&currentKey!==null){
-    const degs=prog.map(c=>c.degree||'?');
-    const pat=matchPattern(degs.filter(d=>d!=='?'));
-    h+=`<div class="detected-note"><h4>検出された進行の分析</h4>`;
-    h+=`<p>キー: <strong style="color:var(--acc)">${NM[currentKey]}</strong><br>`;
-    h+=`進行: ${prog.map(c=>`${c.name}(${c.degree||'?'})`).join(' → ')}</p>`;
-    if(pat){h+=`<p style="color:var(--gold);margin-top:4px">パターン: <strong>${pat.name}</strong><br>${pat.desc}</p><p class="ex" style="margin-top:2px">使用例: ${pat.ex}</p>`}
+    const pat=matchPat(prog.map(c=>c.degree).filter(d=>d&&d!=='?'));
+    h+=`<div class="detected-note"><h4>検出された進行</h4><p>キー: <strong style="color:var(--acc)">${NM[currentKey]}</strong><br>`;
+    h+=prog.map(c=>`${c.name}(${c.degree||'?'})`).join(' → ');
+    h+=`</p>`;
+    if(pat){h+=`<p style="color:var(--gold);margin-top:4px"><strong>${pat.name}</strong><br>${pat.desc}</p><p style="font-size:7px;color:var(--dm);margin-top:2px">例: ${pat.ex}</p>`}
     h+=`</div>`;
   }
-
-  // Degree reference
-  h+=`<div class="lsec"><h3>ディグリーネーム（度数）</h3>`;
-  h+=`<p>コードをローマ数字で表したもの。キーが変わっても同じ番号なら同じ「役割」を持つ。</p>`;
-  const degInfo=[
-    {d:'I',  r:'トニック',desc:'家。安定。曲の始まりと終わりに多い。'},
-    {d:'ii', r:'サブドミナント系',desc:'IVの代理。柔らかい動き出し。'},
-    {d:'iii',r:'トニック代理',desc:'Iの代わりに使える。ちょっと切ない。'},
-    {d:'IV', r:'サブドミナント',desc:'広がり。「どこかへ行きたい」感。'},
-    {d:'V',  r:'ドミナント',desc:'緊張。Iに帰りたくなる力を持つ。'},
-    {d:'vi', r:'トニック代理(マイナー)',desc:'切なさ。Iと同じ安定感だが暗い。'},
-    {d:'vii°',r:'ドミナント代理',desc:'不安定。Vの代わりに使える。'},
-  ];
-  degInfo.forEach(di=>{
-    h+=`<div class="lcard" onclick="this.classList.toggle('open')"><h4>${di.d} <span class="deg">${di.r}</span></h4><div class="ldet"><p>${di.desc}</p>`;
-    if(currentKey!==null){
-      const d=DIATONIC_MAJOR.find(x=>x.deg===di.d);
-      if(d)h+=`<p style="color:var(--blue);margin-top:3px">Key ${NM[currentKey]}では: <strong>${NM[(currentKey+d.offset)%12]+d.type}</strong></p>`;
-    }
+  h+=`<div class="lsec"><h3>ディグリーネーム</h3><p>コードの「役割」をローマ数字で表記。キーが変わっても番号が同じなら同じ機能。</p>`;
+  [{d:'I',r:'トニック',ds:'安定。家。曲の始まりと終わり。'},{d:'ii',r:'サブドミ系',ds:'IVの代理。柔らかい動き。'},{d:'iii',r:'トニック代理',ds:'Iの代わり。少し切ない。'},{d:'IV',r:'サブドミナント',ds:'広がり。「どこかへ行きたい」。'},{d:'V',r:'ドミナント',ds:'緊張。Iに戻りたくなる力。'},{d:'vi',r:'マイナートニック',ds:'切なさ。Iの暗い版。'},{d:'vii°',r:'ドミナント代理',ds:'不安定。Vの代わり。'}].forEach(x=>{
+    h+=`<div class="lcard" onclick="this.classList.toggle('open')"><h4>${x.d} <span class="deg">${x.r}</span></h4><div class="ldet"><p>${x.ds}</p>`;
+    if(currentKey!==null){const dd=DIA.find(d=>d.d===x.d);if(dd)h+=`<p style="color:var(--blue)">Key ${NM[currentKey]}: <strong>${NM[(currentKey+dd.o)%12]+dd.t}</strong></p>`}
     h+=`</div></div>`;
   });
-  h+=`</div>`;
-
-  // Progression patterns
-  h+=`<div class="lsec"><h3>定番コード進行パターン</h3>`;
-  PATTERNS.forEach(p=>{
-    h+=`<div class="lcard" onclick="this.classList.toggle('open')"><h4>${p.name}</h4><div class="ldet">`;
-    h+=`<div class="ldeg-row">${p.degs.map(d=>`<span class="ldeg">${d}</span>`).join('→')}</div>`;
-    if(currentKey!==null){
-      const concrete=p.degs.map(dg=>{const di=DIATONIC_MAJOR.find(x=>x.deg===dg);return di?NM[(currentKey+di.offset)%12]+di.type:dg});
-      h+=`<p style="margin-top:4px;color:var(--blue)">Key ${NM[currentKey]}: ${concrete.join(' → ')}</p>`;
-    }
-    h+=`<p style="margin-top:4px">${p.desc}</p><p class="ex">使用例: ${p.ex}</p></div></div>`;
+  h+=`</div><div class="lsec"><h3>定番進行パターン</h3>`;
+  PATS.forEach(p=>{
+    h+=`<div class="lcard" onclick="this.classList.toggle('open')"><h4>${p.name}</h4><div class="ldet"><div class="ldeg-row">${p.degs.map(d=>`<span class="ldeg">${d}</span>`).join('→')}</div>`;
+    if(currentKey!==null){const cc=p.degs.map(dg=>{const di=DIA.find(x=>x.d===dg);return di?NM[(currentKey+di.o)%12]+di.t:dg});h+=`<p style="margin-top:4px;color:var(--blue)">Key ${NM[currentKey]}: ${cc.join(' → ')}</p>`}
+    h+=`<p style="margin-top:4px">${p.desc}</p><p style="font-size:7px;color:var(--dm)">例: ${p.ex}</p></div></div>`;
   });
   h+=`</div>`;
-
   el.innerHTML=h;
 }
 
-// ═══════════════════════════════════════
-// TAB CANVAS
-// ═══════════════════════════════════════
+// ═══ TAB CANVAS ═══
 const tc=document.getElementById('tc'),tx=tc.getContext('2d');
 function resz(){const r=tc.parentElement.getBoundingClientRect(),d=window.devicePixelRatio||1;tc.width=r.width*d;tc.height=r.height*d;tc.style.width=r.width+'px';tc.style.height=r.height+'px'}
 window.addEventListener('resize',resz);resz();
@@ -578,42 +387,23 @@ function draw(){
   const pT=16*d,pB=16*d,pL=24*d,pR=14*d,dH=h-pT-pB,gap=dH/7;
   const sY=[];for(let i=0;i<6;i++)sY.push(pT+gap*(i+.5));
   for(let i=0;i<6;i++){const y=sY[i];tx.beginPath();tx.moveTo(pL,y);tx.lineTo(w-pR,y);tx.strokeStyle=SC[i]+'28';tx.lineWidth=1*d;tx.stroke();tx.fillStyle=SC[i]+'80';tx.font=`bold ${9*d}px JetBrains Mono`;tx.textAlign='right';tx.textBaseline='middle';tx.fillText(SL[i],pL-4*d,y)}
-  const el=rec?(performance.now()-t0)/1000:(notes.length>0?notes[notes.length-1].time+1:0);
+  const el=rec?(performance.now()-t0)/1000:(notes.length?notes[notes.length-1].time+1:0);
   const wE=el,wS=wE-VIS,phX=w-pR-28*d;
   tx.beginPath();tx.moveTo(phX,pT);tx.lineTo(phX,pT+dH);tx.strokeStyle='#ff6b6b20';tx.lineWidth=1.5*d;tx.stroke();
   const pxS=(phX-pL)/VIS;
-  for(let ci=0;ci<prog.length;ci++){const c=prog[ci];const nt=ci<prog.length-1?prog[ci+1].time:el;const x0=pL+(c.time-wS)*pxS,x1=pL+(nt-wS)*pxS;if(x1<pL||x0>w-pR)continue;const cx0=Math.max(pL,x0),cx1=Math.min(w-pR,x1);tx.fillStyle='rgba(255,107,107,.02)';tx.fillRect(cx0,pT,cx1-cx0,dH);if(cx0>=pL){tx.fillStyle='#ff6b6b40';tx.font=`bold ${8*d}px JetBrains Mono`;tx.textAlign='left';tx.textBaseline='bottom';const label=c.degree?`${c.name}(${c.degree})`:c.name;tx.fillText(label,cx0+2*d,pT-2*d)}}
-  for(const n of notes){const dt=n.time-wS;if(dt<-.5||dt>VIS+.5)continue;const x=pL+dt*pxS,y=sY[n.str];const ft=String(n.fret);tx.font=`bold ${12*d}px JetBrains Mono`;const tw=tx.measureText(ft).width;const bw=Math.max(tw+6*d,16*d),bh=16*d;tx.fillStyle=n.color+'18';tx.beginPath();tx.roundRect(x-bw/2,y-bh/2,bw,bh,3*d);tx.fill();tx.strokeStyle=n.color+'45';tx.lineWidth=1*d;tx.stroke();tx.fillStyle=n.color;tx.textAlign='center';tx.textBaseline='middle';tx.fillText(ft,x,y)}
+  for(let ci=0;ci<prog.length;ci++){const c=prog[ci],nt=ci<prog.length-1?prog[ci+1].time:el;const x0=pL+(c.time-wS)*pxS,x1=pL+(nt-wS)*pxS;if(x1<pL||x0>w-pR)continue;const cx0=Math.max(pL,x0),cx1=Math.min(w-pR,x1);tx.fillStyle='rgba(255,107,107,.02)';tx.fillRect(cx0,pT,cx1-cx0,dH);if(cx0>=pL){tx.fillStyle='#ff6b6b40';tx.font=`bold ${8*d}px JetBrains Mono`;tx.textAlign='left';tx.textBaseline='bottom';const lb=c.degree?`${c.name}(${c.degree})`:c.name;tx.fillText(lb,cx0+2*d,pT-2*d)}}
+  for(const n of notes){const dt=n.time-wS;if(dt<-.5||dt>VIS+.5)continue;const x=pL+dt*pxS,y=sY[n.str],ft=String(n.fret);tx.font=`bold ${12*d}px JetBrains Mono`;const tw=tx.measureText(ft).width,bw=Math.max(tw+6*d,16*d),bh=16*d;tx.fillStyle=n.color+'18';tx.beginPath();tx.roundRect(x-bw/2,y-bh/2,bw,bh,3*d);tx.fill();tx.strokeStyle=n.color+'45';tx.lineWidth=1*d;tx.stroke();tx.fillStyle=n.color;tx.textAlign='center';tx.textBaseline='middle';tx.fillText(ft,x,y)}
   tx.fillStyle='#1a1a1a';tx.font=`${6*d}px JetBrains Mono`;tx.textAlign='center';tx.textBaseline='top';
   for(let t=Math.ceil(wS);t<=Math.floor(wE);t++){if(t<0)continue;const x=pL+(t-wS)*pxS;if(x>=pL&&x<=w-pR)tx.fillText(t+'s',x,pT+dH+3*d)}
   requestAnimationFrame(draw);
 }
 draw();
 
-// ═══════════════════════════════════════
-// UI
-// ═══════════════════════════════════════
-function setMode(m){
-  mode=m;
-  document.querySelectorAll('#modeTog button').forEach(b=>b.classList.toggle('on',b.textContent===m.toUpperCase()));
-  document.getElementById('learnP').classList.toggle('show',m==='learn');
-  tc.style.display=m==='learn'?'none':'block';
-  if(m==='learn')renderLearn();
-  if(m==='chord'&&prog.length>0)showDgr(prog.length-1);
-}
-function setIn(s){document.getElementById('cMic').classList.toggle('on',s==='mic');document.getElementById('cAud').classList.toggle('on',s==='audio');if(rec){stopA();startA().catch(e=>console.error(e))}}
-function clearAll(){notes=[];chordBuf=[];prog=[];lastMidi=-1;selC=-1;pBuf=[];lastChordTime=0;currentKey=null;currentPredictions=[];document.getElementById('pNote').textContent='--';document.getElementById('pHz').textContent='---';document.getElementById('cbar').innerHTML='<span class="lbl">進行</span>';document.getElementById('dgr').classList.remove('open');document.getElementById('keyB').textContent='Key: --';document.getElementById('patN').textContent='';renderPred();if(mode==='learn')renderLearn();if(rec)t0=performance.now()}
-function doExport(){
-  if(!notes.length)return;
-  const q=.2,maxT=notes[notes.length-1].time,cols=Math.ceil(maxT/q)+1;
-  const lines=Array.from({length:6},()=>Array(cols).fill('-'));
-  for(const n of notes){const c=Math.round(n.time/q);if(c>=0&&c<cols)lines[n.str][c]=String(n.fret)}
-  let out='';for(let i=0;i<6;i++)out+=SL[i]+'|'+lines[i].join('')+'|\n';
-  if(prog.length){out+='\n進行: '+prog.map(c=>c.name+(c.degree?'('+c.degree+')':'')).join(' → ')+'\n';if(currentKey!==null)out+='Key: '+NM[currentKey]+'\n'}
-  navigator.clipboard.writeText(out).then(()=>{const b=document.querySelectorAll('.btn')[1];const o=b.textContent;b.textContent='COPIED!';setTimeout(()=>b.textContent=o,1200)}).catch(()=>alert(out));
-}
-
-// Initial learn render
+// ═══ UI ═══
+function setMode(m){mode=m;document.querySelectorAll('#mT button').forEach(b=>b.classList.toggle('on',b.textContent===m.toUpperCase()));document.getElementById('lP').classList.toggle('show',m==='learn');tc.style.display=m==='learn'?'none':'block';if(m==='learn')renderLearn();if(m==='chord'&&prog.length)showDg(prog.length-1)}
+function setIn(s){document.getElementById('cMic').classList.toggle('on',s==='mic');document.getElementById('cAud').classList.toggle('on',s==='audio');if(rec){stopA();startA().catch(console.error)}}
+function clearAll(){notes=[];chordBuf=[];prog=[];lastMidi=-1;selC=-1;pBuf=[];lastChordTime=0;currentKey=null;currentPredictions=[];document.getElementById('pN').textContent='--';document.getElementById('pH').textContent='---';document.getElementById('cb').innerHTML='<span class="lbl">進行</span>';document.getElementById('dg').classList.remove('open');document.getElementById('kB').textContent='Key: --';document.getElementById('paN').textContent='';renderPr();if(mode==='learn')renderLearn();if(rec)t0=performance.now()}
+function doExport(){if(!notes.length)return;const q=.2,mxT=notes[notes.length-1].time,cols=Math.ceil(mxT/q)+1;const lines=Array.from({length:6},()=>Array(cols).fill('-'));for(const n of notes){const c=Math.round(n.time/q);if(c>=0&&c<cols)lines[n.str][c]=String(n.fret)}let out='';for(let i=0;i<6;i++)out+=SL[i]+'|'+lines[i].join('')+'|\n';if(prog.length){out+='\n進行: '+prog.map(c=>c.name+(c.degree?'('+c.degree+')':'')).join(' → ')+'\n';if(currentKey!==null)out+='Key: '+NM[currentKey]+'\n'}navigator.clipboard.writeText(out).then(()=>{const b=document.querySelectorAll('.btn')[1];const o=b.textContent;b.textContent='COPIED!';setTimeout(()=>b.textContent=o,1200)}).catch(()=>alert(out))}
 renderLearn();
 </script>
 </body>
