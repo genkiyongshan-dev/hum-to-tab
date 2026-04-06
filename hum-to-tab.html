@@ -130,6 +130,33 @@ const CPAT={'':[0,4,7],'m':[0,3,7],'7':[0,4,7,10]};
 
 function detectChord(midis,preds){if(midis.length<2)return null;const pc=[...new Set(midis.map(m=>((Math.round(m)%12)+12)%12))];if(pc.length<2)return null;let cands=[];for(let r=0;r<12;r++){for(const[sf,pt]of Object.entries(CPAT)){const cpc=pt.map(p=>(r+p)%12);const h=pc.filter(p=>cpc.includes(p)).length;const rs=h/Math.max(pc.length,cpc.length);if(h<2||rs<.3)continue;const nm=NM[r]+sf;let boost=0;const pr=preds.find(p=>p.name===nm);if(pr)boost=pr.weight*.07;else if(currentKey!==null&&getDeg(nm,currentKey)!=='?')boost=.05;cands.push({name:nm,notes:cpc.map(p=>NM[p]),score:rs+boost})}}cands.sort((a,b)=>b.score-a.score);return cands.length&&cands[0].score>.45?cands[0]:null}
 
+// Guitar mode chord detection: trust the audio, minimal theory boost
+function detectChordGuitar(midis){
+  if(midis.length<2)return null;
+  const pc=[...new Set(midis.map(m=>((Math.round(m)%12)+12)%12))];
+  if(pc.length<2)return null;
+  let cands=[];
+  for(let r=0;r<12;r++){
+    for(const[sf,pt]of Object.entries(CPAT)){
+      const cpc=pt.map(p=>(r+p)%12);
+      const h=pc.filter(p=>cpc.includes(p)).length;
+      const rs=h/Math.max(pc.length,cpc.length);
+      if(h<2||rs<.3)continue;
+      const nm=NM[r]+sf;
+      // Tiny theory boost: only to break ties, not override audio
+      let boost=0;
+      if(currentKey!==null&&getDeg(nm,currentKey)!=='?')boost=0.02;
+      // Prefer chord whose root matches the lowest detected note
+      const lowestMidi=Math.min(...midis);
+      const lowestPC=((lowestMidi%12)+12)%12;
+      if(r===lowestPC) boost+=0.08; // root in bass = strong signal
+      cands.push({name:nm,notes:cpc.map(p=>NM[p]),score:rs+boost});
+    }
+  }
+  cands.sort((a,b)=>b.score-a.score);
+  return cands.length&&cands[0].score>.45?cands[0]:null;
+}
+
 // ═══ CHROMA-BASED CHORD DETECTION (for guitar mode) ═══
 // All thresholds scale with sensitivity slider (1=strict, 10=loose)
 function getGtrSens(){
@@ -285,6 +312,9 @@ let mode='tab',inMode='mic',rec=false,actx=null,ana=null,strm=null;
 let notes=[],t0=0,prog=[],cWin=1500,sens=7;
 let lastMidi=-1,lastT=0,selC=-1,pBuf=[],chordBuf=[],lastChordTime=0;
 let currentKey=null,currentPredictions=[];const MCI=600;
+// Guitar mode: accumulate pitches from rapid autocorrelation reads
+let gtrPitchBuf=[]; // {midi, time} - short window to capture strummed notes
+const GTR_WINDOW=250; // ms - a strum takes ~100-200ms
 function getSP(){const t=(sens-1)/9;return{rms:.025*(1-t)+.002*t,corr:.7*(1-t)+.15*t}}
 function stP(r){pBuf.push(r);if(pBuf.length>3)pBuf.shift();if(pBuf.length<2)return r;const s=[...pBuf].sort((a,b)=>a-b);return s[Math.floor(s.length/2)]}
 
@@ -313,30 +343,55 @@ function loop(){
   const now=performance.now();
 
   if(inMode==='guitar'){
-    // Guitar mode: chroma-based chord detection
+    // Guitar mode: autocorrelation pitch detection (same as tuner apps)
+    // then accumulate multiple pitches from a strum and detect chord
     const buf=new Float32Array(ana.fftSize);
     ana.getFloatTimeDomainData(buf);
-    let rms=0;for(let i=0;i<buf.length;i++)rms+=buf[i]*buf[i];
-    rms=Math.sqrt(rms/buf.length);
-    document.getElementById('lB').style.width=Math.min(100,rms*500)+'%';
+    const rf=acorr(buf,actx.sampleRate);
 
-    if(rms>getSP().rms&&now-lastChordTime>MCI){
-      const ch=chromaDetect(ana,currentPredictions);
-      if(ch){
-        const last=prog.length?prog[prog.length-1]:null;
-        if(!last||last.name!==ch.name){
-          const el=(now-t0)/1000;
-          const v=VOI[ch.name]?VOI[ch.name][0]:null;
-          prog.push({name:ch.name,time:el,voicing:v,notes:ch.notes});
-          lastChordTime=now;
-          document.getElementById('pN').textContent=ch.name;
-          document.getElementById('pN').classList.add('on');
-          updTh();updStrip();updPr();
-          if(mode==='learn')renderLearn();
+    if(rf>0){
+      const midi=69+12*Math.log2(rf/440);
+      const rm=Math.round(midi);
+      const nn=NM[((rm%12)+12)%12];
+      document.getElementById('pN').textContent=nn;
+      document.getElementById('pN').classList.add('on');
+      document.getElementById('pH').textContent=rf.toFixed(0);
+
+      // Accumulate detected pitches in short window
+      gtrPitchBuf.push({midi:rm,time:now});
+      gtrPitchBuf=gtrPitchBuf.filter(n=>now-n.time<GTR_WINDOW);
+
+      // Also add to TAB notes
+      const gap=rm===lastMidi?300:100;
+      if(rm!==lastMidi||(now-lastT)>gap){
+        const el=(now-t0)/1000,prev=notes.length?notes[notes.length-1]:null;
+        const pos=pickPos(midi,prev?prev.str:-1,prev?prev.fret:-1);
+        if(pos){notes.push({time:el,midi:rm,str:pos.str,fret:pos.fret,noteName:nn,color:SC[pos.str]});if(notes.length>2)reOpt(notes,Math.max(0,notes.length-5));lastMidi=rm;lastT=now}
+      }
+
+      // Try chord detection from accumulated pitches
+      if(now-lastChordTime>MCI){
+        const uq=[...new Set(gtrPitchBuf.map(n=>n.midi))];
+        if(uq.length>=2){
+          // Guitar mode: minimal theory boost for accuracy
+          const ch=detectChordGuitar(uq);
+          if(ch){
+            const last=prog.length?prog[prog.length-1]:null;
+            if(!last||last.name!==ch.name){
+              const el=(now-t0)/1000,v=VOI[ch.name]?VOI[ch.name][0]:null;
+              prog.push({name:ch.name,time:el,voicing:v,notes:ch.notes});
+              lastChordTime=now;
+              gtrPitchBuf=[];
+              updTh();updStrip();updPr();
+              if(mode==='learn')renderLearn();
+            }
+          }
         }
       }
-    } else if(rms<=getSP().rms){
+    } else {
       document.getElementById('pN').classList.remove('on');
+      // Clear stale pitches on silence
+      if(gtrPitchBuf.length&&now-gtrPitchBuf[gtrPitchBuf.length-1].time>400) gtrPitchBuf=[];
     }
   } else {
     // Hum/audio mode: autocorrelation pitch detection
@@ -422,7 +477,7 @@ function setIn(s){
   document.getElementById('cGtr').classList.toggle('on',s==='guitar');
   if(rec){stopA();startA().catch(console.error)}
 }
-function clearAll(){notes=[];chordBuf=[];prog=[];lastMidi=-1;selC=-1;pBuf=[];lastChordTime=0;currentKey=null;currentPredictions=[];document.getElementById('pN').textContent='--';document.getElementById('pH').textContent='---';document.getElementById('cb').innerHTML='<span class="lbl">進行</span>';document.getElementById('dg').classList.remove('open');document.getElementById('kB').textContent='Key: --';document.getElementById('paN').textContent='';renderPrUI();if(mode==='learn')renderLearn();if(rec)t0=performance.now()}
+function clearAll(){notes=[];chordBuf=[];gtrPitchBuf=[];prog=[];lastMidi=-1;selC=-1;pBuf=[];lastChordTime=0;currentKey=null;currentPredictions=[];document.getElementById('pN').textContent='--';document.getElementById('pH').textContent='---';document.getElementById('cb').innerHTML='<span class="lbl">進行</span>';document.getElementById('dg').classList.remove('open');document.getElementById('kB').textContent='Key: --';document.getElementById('paN').textContent='';renderPrUI();if(mode==='learn')renderLearn();if(rec)t0=performance.now()}
 function doExport(){if(!notes.length&&!prog.length)return;let out='';if(notes.length){const q=.2,mxT=notes[notes.length-1].time,cols=Math.ceil(mxT/q)+1;const lines=Array.from({length:6},()=>Array(cols).fill('-'));for(const n of notes){const c=Math.round(n.time/q);if(c>=0&&c<cols)lines[n.str][c]=String(n.fret)}for(let i=0;i<6;i++)out+=SL[i]+'|'+lines[i].join('')+'|\n'}if(prog.length){out+='\n進行: '+prog.map(c=>c.name+(c.degree?'('+c.degree+')':'')).join(' → ')+'\n';if(currentKey!==null)out+='Key: '+NM[currentKey]+'\n'}navigator.clipboard.writeText(out).then(()=>{const b=document.querySelectorAll('.btn')[1];const o=b.textContent;b.textContent='COPIED!';setTimeout(()=>b.textContent=o,1200)}).catch(()=>alert(out))}
 renderLearn();
 </script>
