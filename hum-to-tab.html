@@ -40,6 +40,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .ci .cd{font-size:6px;color:var(--dm);margin-top:1px}
 .ci.now .cn{background:rgba(255,107,107,.1);border-color:rgba(255,107,107,.35);color:var(--acc)}
 .ci.sel .cn{background:rgba(255,107,107,.18);border-color:var(--acc);color:var(--acc)}
+.ci .cn.playing{box-shadow:0 0 8px var(--gl);border-color:var(--acc)}
 .ca{color:var(--dm2);font-size:7px;flex-shrink:0}
 .pred{display:flex;align-items:center;gap:3px;padding:4px 12px;border-bottom:1px solid var(--bd);min-height:28px;overflow-x:auto;scrollbar-width:none}
 .pred::-webkit-scrollbar{display:none}
@@ -52,6 +53,9 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .dgr .inner{display:flex;align-items:center;padding:6px 12px;gap:8px}
 .dgr .dn{font-size:18px;font-weight:700;color:var(--acc);min-width:34px}
 .dgr .di{font-size:7px;color:var(--dm);line-height:1.5}
+/* play button in diagram */
+.play-btn{background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:var(--acc);font-family:inherit;font-size:8px;padding:4px 10px;border-radius:4px;cursor:pointer;margin-top:4px;display:inline-flex;align-items:center;gap:3px}
+.play-btn:active{background:rgba(255,107,107,.25)}
 .main{flex:1;position:relative;overflow:hidden}
 .main canvas{width:100%;height:100%;display:block}
 .lp{position:absolute;inset:0;background:var(--bg);overflow-y:auto;display:none;padding:12px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
@@ -103,36 +107,108 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
   <div class="cbar" id="cb"><span class="lbl">進行</span></div>
   <div class="pred" id="pr"><span class="plbl">次→</span></div>
   <div class="dgr" id="dg"><div class="inner"><div class="dn" id="dN">--</div><canvas id="dC" width="120" height="90"></canvas><div class="di" id="dI"></div></div></div>
-  <div class="main"><canvas id="tc"></canvas><div class="lp" id="lP"></div><div class="ov" id="ov"><div><h2>HUM → TAB</h2><p>マイクボタンで入力開始<br><br>理論予測で次のコードを絞り込み<br>音で確定します<br><br>LEARNタブで和声学を学べます</p></div></div></div>
+  <div class="main"><canvas id="tc"></canvas><div class="lp" id="lP"></div><div class="ov" id="ov"><div><h2>HUM → TAB</h2><p>マイクボタンで入力開始<br><br>検出されたコードをタップすると<br>音が鳴って確認できます<br><br>LEARNタブで和声学を学べます</p></div></div></div>
   <div class="ctrl"><button class="btn" onclick="clearAll()">CLEAR</button><button class="mic" id="mic" onclick="toggle()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button><button class="btn" onclick="doExport()">EXPORT</button></div>
 </div>
 <script>
 const NM=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const TUN=[64,59,55,50,45,40],SC=['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#74c0fc','#b197fc'],SL=['e','B','G','D','A','E'];
 const DIA=[{d:'I',o:0,t:'',fn:'T'},{d:'ii',o:2,t:'m',fn:'SD'},{d:'iii',o:4,t:'m',fn:'T'},{d:'IV',o:5,t:'',fn:'SD'},{d:'V',o:7,t:'',fn:'D'},{d:'vi',o:9,t:'m',fn:'T'},{d:'vii°',o:11,t:'dim',fn:'D'}];
-const TRANS={'I':[{to:'IV',w:5},{to:'V',w:5},{to:'vi',w:4},{to:'ii',w:3},{to:'iii',w:2}],'ii':[{to:'V',w:5},{to:'IV',w:3},{to:'vii°',w:2}],'iii':[{to:'vi',w:5},{to:'IV',w:4},{to:'ii',w:2}],'IV':[{to:'V',w:5},{to:'I',w:4},{to:'iii',w:3},{to:'ii',w:2},{to:'vi',w:2}],'V':[{to:'I',w:5},{to:'vi',w:4},{to:'IV',w:2},{to:'iii',w:2}],'vi':[{to:'IV',w:5},{to:'ii',w:4},{to:'V',w:3},{to:'I',w:2},{to:'iii',w:2}],'vii°':[{to:'I',w:5},{to:'iii',w:3}]};
-const PATS=[
-  {name:'カノン進行',degs:['I','V','vi','iii','IV','I','IV','V'],desc:'J-POP最多用。安定感と美しさのバランス。',ex:'クリスマスイブ, Lemon'},
-  {name:'王道進行',degs:['IV','V','iii','vi'],desc:'サビで多用。期待感→解決→切なさの流れ。',ex:'残酷な天使のテーゼ, Pretender'},
-  {name:'小室進行',degs:['vi','IV','V','I'],desc:'マイナーから始まりメジャーで解決。',ex:'Get Wild, LOVE MACHINE'},
-  {name:'丸サ進行',degs:['IV','iii','vi','I'],desc:'おしゃれで浮遊感。シティポップ系。',ex:'Plastic Love, 夜に駆ける'},
-  {name:'レットイットビー',degs:['I','V','vi','IV'],desc:'世界で最も有名な進行。',ex:'Let It Be, Stand By Me系'},
-  {name:'循環コード',degs:['I','vi','IV','V'],desc:'50年代ポップスの基本。',ex:'Stand By Me, 上を向いて歩こう'},
-];
+const TRANS={'I':[{to:'IV',w:5},{to:'V',w:5},{to:'vi',w:4},{to:'ii',w:3},{to:'iii',w:2}],'ii':[{to:'V',w:5},{to:'IV',w:3}],'iii':[{to:'vi',w:5},{to:'IV',w:4},{to:'ii',w:2}],'IV':[{to:'V',w:5},{to:'I',w:4},{to:'iii',w:3},{to:'ii',w:2},{to:'vi',w:2}],'V':[{to:'I',w:5},{to:'vi',w:4},{to:'IV',w:2}],'vi':[{to:'IV',w:5},{to:'ii',w:4},{to:'V',w:3},{to:'I',w:2},{to:'iii',w:2}],'vii°':[{to:'I',w:5},{to:'iii',w:3}]};
+const PATS=[{name:'カノン進行',degs:['I','V','vi','iii','IV','I','IV','V'],desc:'J-POP最多。安定と美しさのバランス。',ex:'クリスマスイブ, Lemon'},{name:'王道進行',degs:['IV','V','iii','vi'],desc:'サビの定番。期待→解決→切なさ。',ex:'残酷な天使のテーゼ, Pretender'},{name:'小室進行',degs:['vi','IV','V','I'],desc:'マイナーから始まりメジャーで解決。',ex:'Get Wild'},{name:'丸サ進行',degs:['IV','iii','vi','I'],desc:'おしゃれ浮遊感。シティポップ系。',ex:'Plastic Love, 夜に駆ける'},{name:'レットイットビー',degs:['I','V','vi','IV'],desc:'世界で最も有名な進行。',ex:'Let It Be'},{name:'循環コード',degs:['I','vi','IV','V'],desc:'永遠にループする安定形。',ex:'Stand By Me, 上を向いて歩こう'}];
 function detectKey(ns){if(ns.length<2)return null;let bk=-1,bs=0;for(let k=0;k<12;k++){let sc=0;const ds=DIA.map(d=>NM[(k+d.o)%12]+d.t);for(const cn of ns){const b=cn.replace('7','');if(ds.some(dc=>dc===b||dc===cn))sc++}if(sc>bs){bs=sc;bk=k}}return bs>=2?bk:null}
-function getDeg(n,k){if(k===null)return'';const b=n.replace('7','');for(const d of DIA){if(NM[(k+d.o)%12]+d.t===b||NM[(k+d.o)%12]+d.t===n)return d.d}if(n===NM[(k+7)%12]+'7')return'V7';return'?'}
+function getDeg(n,k){if(k===null)return'';const b=n.replace('7','');for(const d of DIA)if(NM[(k+d.o)%12]+d.t===b)return d.d;if(n===NM[(k+7)%12]+'7')return'V7';return'?'}
 function getFunc(deg){const d=DIA.find(x=>x.d===deg);return d?d.fn:'?'}
 function predictNext(deg,k){if(k===null||!deg)return[];const bd=deg.replace('7','');const tr=TRANS[bd];if(!tr)return[];return tr.sort((a,b)=>b.w-a.w).slice(0,5).map(t=>{const d=DIA.find(x=>x.d===t.to);return d?{name:NM[(k+d.o)%12]+d.t,deg:t.to,weight:t.w}:null}).filter(Boolean)}
 function matchPat(ds){if(ds.length<3)return null;const s=ds.join(',');let bm=null,bl=0;for(const p of PATS){for(let l=Math.min(ds.length,p.degs.length);l>=3;l--){const ps=p.degs.slice(0,l).join(',');if(s.includes(ps)&&l>bl){bl=l;bm=p}}if(ds.length>=p.degs.length){const t=ds.slice(-p.degs.length).join(',');if(t===p.degs.join(',')&&p.degs.length>bl){bl=p.degs.length;bm=p}}}return bm}
-// Key helper
 function kn(deg){if(currentKey===null)return'';const d=DIA.find(x=>x.d===deg);return d?NM[(currentKey+d.o)%12]+d.t:''}
 function scaleNotes(k){return[0,2,4,5,7,9,11].map(o=>NM[(k+o)%12])}
 
+// ═══ CHORD PLAYBACK ENGINE ═══
+let playCtx=null;
+function ensurePlayCtx(){
+  if(!playCtx||playCtx.state==='closed') playCtx=new(window.AudioContext||window.webkitAudioContext)();
+  if(playCtx.state==='suspended') playCtx.resume();
+  return playCtx;
+}
+
+// Guitar string open frequencies: E2=82.41, A2=110, D3=146.83, G3=196, B3=246.94, E4=329.63
+const STRING_FREQ=[329.63,246.94,196.00,146.83,110.00,82.41]; // e,B,G,D,A,E
+
+function getVoicingFreqs(voicing){
+  if(!voicing)return[];
+  const freqs=[];
+  for(let i=0;i<6;i++){
+    const f=voicing[i];
+    if(f>=0){
+      // fret 0 = open string, each fret = semitone up
+      freqs.push(STRING_FREQ[5-i]*Math.pow(2,f/12));
+    }
+  }
+  return freqs;
+}
+
+// Get frequencies from chord name (fallback if no voicing)
+function chordNameToFreqs(name){
+  const root=name.replace(/m$|7$|m7$/,'');
+  const rootIdx=NM.indexOf(root);
+  if(rootIdx<0)return[];
+  const rootFreq=130.81*Math.pow(2,rootIdx/12); // C3 base
+  const isMinor=name.includes('m')&&!name.includes('M');
+  const is7=name.includes('7');
+  const third=isMinor?3:4;
+  const freqs=[rootFreq, rootFreq*Math.pow(2,third/12), rootFreq*Math.pow(2,7/12)];
+  if(is7)freqs.push(rootFreq*Math.pow(2,10/12));
+  return freqs;
+}
+
+function playChord(name,voicing,duration=1.2){
+  const ctx=ensurePlayCtx();
+  const now=ctx.currentTime;
+
+  // Get frequencies from voicing or chord name
+  let freqs=voicing?getVoicingFreqs(voicing):chordNameToFreqs(name);
+  if(!freqs.length)freqs=chordNameToFreqs(name);
+
+  const gain=ctx.createGain();
+  gain.connect(ctx.destination);
+  // Guitar-like envelope: quick attack, medium sustain, gradual decay
+  gain.gain.setValueAtTime(0,now);
+  gain.gain.linearRampToValueAtTime(0.15,now+0.02);
+  gain.gain.exponentialRampToValueAtTime(0.08,now+0.3);
+  gain.gain.exponentialRampToValueAtTime(0.001,now+duration);
+
+  freqs.forEach((freq,i)=>{
+    // Strum effect: slight delay per string
+    const strumDelay=i*0.025;
+    const t=now+strumDelay;
+
+    // Use two oscillators for richer sound
+    const osc1=ctx.createOscillator();
+    const osc2=ctx.createOscillator();
+    const noteGain=ctx.createGain();
+
+    osc1.type='triangle';
+    osc2.type='sine';
+    osc1.frequency.setValueAtTime(freq,t);
+    osc2.frequency.setValueAtTime(freq*1.001,t); // slight detune for warmth
+
+    noteGain.gain.setValueAtTime(0,t);
+    noteGain.gain.linearRampToValueAtTime(0.5,t+0.01);
+    noteGain.gain.exponentialRampToValueAtTime(0.001,t+duration);
+
+    osc1.connect(noteGain);
+    osc2.connect(noteGain);
+    noteGain.connect(gain);
+
+    osc1.start(t);osc2.start(t);
+    osc1.stop(t+duration);osc2.stop(t+duration);
+  });
+}
+
 const VOI={'C':[[-1,3,2,0,1,0]],'D':[[-1,-1,0,2,3,2]],'E':[[0,2,2,1,0,0]],'F':[[1,3,3,2,1,1]],'G':[[3,2,0,0,0,3]],'A':[[-1,0,2,2,2,0]],'B':[[-1,2,4,4,4,2]],'Cm':[[3,3,5,5,4,3]],'Dm':[[-1,-1,0,2,3,1]],'Em':[[0,2,2,0,0,0]],'Fm':[[1,3,3,1,1,1]],'Gm':[[3,5,5,3,3,3]],'Am':[[-1,0,2,2,1,0]],'Bm':[[-1,2,4,4,3,2]],'C7':[[-1,3,2,3,1,0]],'D7':[[-1,-1,0,2,1,2]],'E7':[[0,2,0,1,0,0]],'F7':[[1,3,1,2,1,1]],'G7':[[3,2,0,0,0,1]],'A7':[[-1,0,2,0,2,0]],'B7':[[-1,2,1,2,0,2]],'C#':[[-1,4,3,1,2,1]],'D#':[[-1,-1,1,3,4,3]],'F#':[[2,4,4,3,2,2]],'G#':[[4,6,6,5,4,4]],'A#':[[-1,1,3,3,3,1]],'Db':[[-1,4,3,1,2,1]],'Eb':[[-1,-1,1,3,4,3]],'Gb':[[2,4,4,3,2,2]],'Ab':[[4,6,6,5,4,4]],'Bb':[[-1,1,3,3,3,1]],'C#m':[[-1,4,6,6,5,4]],'D#m':[[-1,-1,1,3,4,2]],'F#m':[[2,4,4,2,2,2]],'G#m':[[4,6,6,4,4,4]],'A#m':[[-1,1,3,3,2,1]],'Dbm':[[-1,4,6,6,5,4]],'Ebm':[[-1,-1,1,3,4,2]],'Gbm':[[2,4,4,2,2,2]],'Abm':[[4,6,6,4,4,4]],'Bbm':[[-1,1,3,3,2,1]]};
 const CPAT={'':[0,4,7],'m':[0,3,7],'7':[0,4,7,10]};
-
 function detectChord(midis,preds){if(midis.length<2)return null;const pc=[...new Set(midis.map(m=>((Math.round(m)%12)+12)%12))];if(pc.length<2)return null;let cands=[];for(let r=0;r<12;r++){for(const[sf,pt]of Object.entries(CPAT)){const cpc=pt.map(p=>(r+p)%12);const h=pc.filter(p=>cpc.includes(p)).length;const rs=h/Math.max(pc.length,cpc.length);if(h<2||rs<.3)continue;const nm=NM[r]+sf;let boost=0;const pr=preds.find(p=>p.name===nm);if(pr)boost=pr.weight*.07;else if(currentKey!==null&&getDeg(nm,currentKey)!=='?')boost=.05;cands.push({name:nm,notes:cpc.map(p=>NM[p]),score:rs+boost})}}cands.sort((a,b)=>b.score-a.score);return cands.length&&cands[0].score>.45?cands[0]:null}
-
 function allPos(m){const n=Math.round(m),r=[];for(let i=0;i<6;i++){const f=n-TUN[i];if(f>=0&&f<=19)r.push({str:i,fret:f})}return r}
 function pickPos(m,ps,pf){const c=allPos(m);if(!c.length)return null;if(ps<0){c.sort((a,b)=>(a.fret*2+Math.abs(a.str-2)*.5)-(b.fret*2+Math.abs(b.str-2)*.5));return c[0]}c.sort((a,b)=>{const da=Math.abs(a.fret-pf)*3+(a.str===ps?5:0)+Math.abs(a.str-ps)*.5;const db=Math.abs(b.fret-pf)*3+(b.str===ps?5:0)+Math.abs(b.str-ps)*.5;return da-db});return c[0]}
 function reOpt(ns,s){const e=Math.min(ns.length,s+5);let ps=s>0?ns[s-1].str:-1,pf=s>0?ns[s-1].fret:-1;for(let i=s;i<e;i++){const p=pickPos(ns[i].midi,ps,pf);if(p){ns[i].str=p.str;ns[i].fret=p.fret;ns[i].color=SC[p.str];ps=p.str;pf=p.fret}}}
@@ -150,131 +226,49 @@ function toggle(){rec?stopA():startA().catch(console.error)}
 function loop(){if(!rec)return;const buf=new Float32Array(ana.fftSize);ana.getFloatTimeDomainData(buf);const rf=acorr(buf,actx.sampleRate);const now=performance.now();if(rf>0){const rm0=69+12*Math.log2(rf/440),midi=stP(rm0),rm=Math.round(midi),nn=NM[((rm%12)+12)%12];document.getElementById('pN').textContent=nn;document.getElementById('pN').classList.add('on');document.getElementById('pH').textContent=rf.toFixed(0);const gap=rm===lastMidi?400:150;if(rm!==lastMidi||(now-lastT)>gap){const el=(now-t0)/1000,prev=notes.length?notes[notes.length-1]:null;const pos=pickPos(midi,prev?prev.str:-1,prev?prev.fret:-1);if(pos){notes.push({time:el,midi:rm,str:pos.str,fret:pos.fret,noteName:nn,color:SC[pos.str]});if(notes.length>2)reOpt(notes,Math.max(0,notes.length-5));lastMidi=rm;lastT=now}}chordBuf.push({midi:rm,time:now});chordBuf=chordBuf.filter(n=>now-n.time<cWin);if(now-lastChordTime>MCI){const uq=[...new Set(chordBuf.map(n=>n.midi))];const ch=detectChord(uq,currentPredictions);if(ch){const last=prog.length?prog[prog.length-1]:null;if(!last||last.name!==ch.name){const el=(now-t0)/1000,v=VOI[ch.name]?VOI[ch.name][0]:null;prog.push({name:ch.name,time:el,voicing:v,notes:ch.notes});lastChordTime=now;chordBuf=[];updTh();updStrip();updPr();if(mode==='learn')renderLearn()}}}}else{document.getElementById('pN').classList.remove('on');if(chordBuf.length&&now-chordBuf[chordBuf.length-1].time>300)chordBuf=[]}requestAnimationFrame(loop)}
 function updTh(){const ns=prog.map(c=>c.name);currentKey=detectKey(ns);document.getElementById('kB').textContent=currentKey!==null?'Key: '+NM[currentKey]:'Key: --';prog.forEach(c=>c.degree=getDeg(c.name,currentKey));const vd=prog.map(c=>c.degree).filter(d=>d&&d!=='?');document.getElementById('paN').textContent=matchPat(vd)?.name||''}
 function updPr(){if(!prog.length||currentKey===null){currentPredictions=[];renderPrUI();return}currentPredictions=predictNext(prog[prog.length-1].degree,currentKey);renderPrUI()}
-function renderPrUI(){const el=document.getElementById('pr');let h='<span class="plbl">次→</span>';if(!currentPredictions.length)h+='<span style="font-size:7px;color:var(--dm)">検出中...</span>';else currentPredictions.forEach((p,i)=>{h+=`<span class="${i===0?'pb hot':'pb'}" onclick="forceChord('${p.name}')">${p.name} <span class="pd">${p.deg}</span></span>`});el.innerHTML=h}
+function renderPrUI(){const el=document.getElementById('pr');let h='<span class="plbl">次→</span>';if(!currentPredictions.length)h+='<span style="font-size:7px;color:var(--dm)">検出中...</span>';else currentPredictions.forEach((p,i)=>{const v=VOI[p.name]?VOI[p.name][0]:null;h+=`<span class="${i===0?'pb hot':'pb'}" onclick="playAndForce('${p.name}')">${p.name} <span class="pd">${p.deg}</span></span>`});el.innerHTML=h}
+
+// Play chord then add to progression
+function playAndForce(nm){
+  const v=VOI[nm]?VOI[nm][0]:null;
+  playChord(nm,v);
+  forceChord(nm);
+}
+
+// Play a chord from the progression strip
+function playFromProg(i){
+  const c=prog[i];if(!c)return;
+  playChord(c.name,c.voicing);
+  showDg(i);
+}
+
 function forceChord(nm){const now=performance.now(),el=(now-t0)/1000,v=VOI[nm]?VOI[nm][0]:null;if(prog.length&&prog[prog.length-1].name===nm)return;prog.push({name:nm,time:el,voicing:v,notes:[]});lastChordTime=now;chordBuf=[];updTh();updStrip();updPr();if(mode==='learn')renderLearn()}
-function updStrip(){const el=document.getElementById('cb');let h='<span class="lbl">進行</span>';prog.forEach((c,i)=>{if(i>0)h+='<span class="ca">→</span>';h+=`<span class="${i===prog.length-1?'ci now':i===selC?'ci sel':'ci'}" onclick="showDg(${i})"><span class="cn">${c.name}</span><span class="cd">${c.degree||''}</span></span>`});el.innerHTML=h;el.scrollLeft=el.scrollWidth;if(prog.length)showDg(prog.length-1)}
-function showDg(i){selC=i;const c=prog[i];if(!c)return;document.getElementById('dg').classList.add('open');document.getElementById('dN').textContent=c.name;document.querySelectorAll('.ci').forEach((e,j)=>e.className=j===i?'ci sel':j===prog.length-1?'ci now':'ci');const inf=document.getElementById('dI'),ds=c.degree?' ('+c.degree+')':'',fn=c.degree?getFunc(c.degree):'';const fnLabel={'T':'トニック','SD':'サブドミナント','D':'ドミナント'}[fn]||'';if(c.voicing){inf.innerHTML=`${c.name}${ds} ${fnLabel}<br>E A D G B e<br>${c.voicing.map(f=>f===-1?'x':f).join(' ')}<br>構成音: ${(c.notes||[]).join('·')}`;drawDg(c.voicing)}else{inf.innerHTML=`${c.name}${ds} ${fnLabel}`;drawDgE()}}
+function updStrip(){const el=document.getElementById('cb');let h='<span class="lbl">進行</span>';prog.forEach((c,i)=>{if(i>0)h+='<span class="ca">→</span>';h+=`<span class="${i===prog.length-1?'ci now':i===selC?'ci sel':'ci'}" onclick="playFromProg(${i})"><span class="cn">${c.name}</span><span class="cd">${c.degree||''}</span></span>`});el.innerHTML=h;el.scrollLeft=el.scrollWidth;if(prog.length)showDg(prog.length-1)}
+function showDg(i){selC=i;const c=prog[i];if(!c)return;document.getElementById('dg').classList.add('open');document.getElementById('dN').textContent=c.name;document.querySelectorAll('.ci').forEach((e,j)=>e.className=j===i?'ci sel':j===prog.length-1?'ci now':'ci');const inf=document.getElementById('dI'),ds=c.degree?' ('+c.degree+')':'',fn=c.degree?getFunc(c.degree):'',fnL={'T':'トニック','SD':'サブドミナント','D':'ドミナント'}[fn]||'';if(c.voicing){inf.innerHTML=`${c.name}${ds} ${fnL}<br>E A D G B e<br>${c.voicing.map(f=>f===-1?'x':f).join(' ')}<br><button class="play-btn" onclick="event.stopPropagation();playChord('${c.name}',${JSON.stringify(c.voicing)})">♪ 鳴らす</button>`; drawDg(c.voicing)}else{inf.innerHTML=`${c.name}${ds} ${fnL}<br><button class="play-btn" onclick="event.stopPropagation();playChord('${c.name}',null)">♪ 鳴らす</button>`;drawDgE()}}
 function drawDg(v){const cv=document.getElementById('dC'),c=cv.getContext('2d'),d=window.devicePixelRatio||1;cv.width=120*d;cv.height=90*d;cv.style.width='120px';cv.style.height='90px';c.scale(d,d);c.clearRect(0,0,120,90);const L=18,T=14,W=84,H=64,ss=W/5,fs=H/4;const pl=v.filter(f=>f>0);let mf=pl.length?Math.min(...pl):1;if(mf<=2)mf=1;if(mf===1){c.fillStyle='#555';c.fillRect(L-1,T-1,W+2,2)}else{c.fillStyle='#444';c.font='6px JetBrains Mono';c.textAlign='right';c.textBaseline='middle';c.fillText(mf+'fr',L-3,T+fs/2)}c.strokeStyle='#252530';c.lineWidth=1;for(let i=0;i<6;i++){c.beginPath();c.moveTo(L+i*ss,T);c.lineTo(L+i*ss,T+H);c.stroke()}for(let i=0;i<=4;i++){c.beginPath();c.moveTo(L,T+i*fs);c.lineTo(L+W,T+i*fs);c.stroke()}for(let i=0;i<6;i++){const x=L+i*ss,f=v[i];if(f===-1){c.fillStyle='#444';c.font='bold 7px JetBrains Mono';c.textAlign='center';c.textBaseline='bottom';c.fillText('×',x,T-2)}else if(f===0){c.strokeStyle='#777';c.lineWidth=1;c.beginPath();c.arc(x,T-4,3,0,Math.PI*2);c.stroke()}else{const y=T+(f-mf)*fs+fs/2;c.fillStyle=SC[5-i];c.beginPath();c.arc(x,y,4.5,0,Math.PI*2);c.fill();c.fillStyle='#000';c.font='bold 5px JetBrains Mono';c.textAlign='center';c.textBaseline='middle';c.fillText(f,x,y)}}c.fillStyle='#333';c.font='5px JetBrains Mono';c.textAlign='center';c.textBaseline='top';['E','A','D','G','B','e'].forEach((s,i)=>c.fillText(s,L+i*ss,T+H+2))}
 function drawDgE(){const cv=document.getElementById('dC'),c=cv.getContext('2d'),d=window.devicePixelRatio||1;cv.width=120*d;cv.height=90*d;cv.style.width='120px';cv.style.height='90px';c.scale(d,d);c.clearRect(0,0,120,90);c.fillStyle='#333';c.font='8px JetBrains Mono';c.textAlign='center';c.textBaseline='middle';c.fillText('—',60,45)}
 
-// ═══ LEARN TAB (和声学) ═══
+// ═══ LEARN ═══
 function renderLearn(){
-  const el=document.getElementById('lP');
-  const k=currentKey;
-  const kName=k!==null?NM[k]:'C';
-  const kNotes=k!==null?scaleNotes(k):scaleNotes(0);
-  let h='';
-
-  // ── 検出された進行の分析 ──
-  if(prog.length>=2&&k!==null){
-    const degs=prog.map(c=>c.degree).filter(d=>d&&d!=='?');
-    const pat=matchPat(degs);
-    h+=`<div class="dn-box"><h4>検出された進行</h4>`;
-    h+=`<p>キー: <strong style="color:var(--acc)">${kName}メジャー</strong></p>`;
-    h+=`<p>${prog.map(c=>{
-      const fn=getFunc(c.degree);
-      const fnC={'T':'color:var(--acc)','SD':'color:var(--gold)','D':'color:var(--blue)'}[fn]||'';
-      return`<strong style="${fnC}">${c.name}(${c.degree||'?'})</strong>`;
-    }).join(' → ')}</p>`;
-    // Show function flow
-    const fnFlow=prog.map(c=>{const fn=getFunc(c.degree);return{'T':'安定','SD':'展開','D':'緊張'}[fn]||'?'}).join(' → ');
-    h+=`<p style="margin-top:3px">機能の流れ: ${fnFlow}</p>`;
-    if(pat)h+=`<p style="color:var(--gold);margin-top:4px"><strong>${pat.name}</strong> — ${pat.desc}</p>`;
-    h+=`</div>`;
-  }
-
-  // ── 1. スケールからコードが生まれる仕組み ──
-  h+=`<div class="ls"><h3>スケール → コードの仕組み</h3>`;
-  h+=`<p><span class="hi">${kName}メジャースケール</span>の7つの音:</p>`;
-  h+=`<p style="font-size:11px;letter-spacing:2px;color:var(--tx);text-align:center;margin:6px 0">${kNotes.join(' ')}</p>`;
-  h+=`<p>この各音を<strong>ルート（根音）</strong>にして、スケール内の音だけを1つ飛ばしに3つ重ねるとコードになる。</p>`;
-  h+=`<table class="func-tbl"><tr><th>度数</th><th>コード</th><th>構成</th><th>機能</th></tr>`;
-  const fnLabel={'T':'<span style="color:var(--acc)">T</span>','SD':'<span style="color:var(--gold)">SD</span>','D':'<span style="color:var(--blue)">D</span>'};
-  DIA.forEach((d,i)=>{
-    const cn=NM[(currentKey??0+d.o)%12]+d.t;
-    const root=kNotes[i];
-    const third=kNotes[(i+2)%7];
-    const fifth=kNotes[(i+4)%7];
-    h+=`<tr><td class="ft">${d.d}</td><td>${kn(d.d)||cn}</td><td style="color:var(--dm)">${root}-${third}-${fifth}</td><td>${fnLabel[d.fn]}</td></tr>`;
-  });
+  const el=document.getElementById('lP');const k=currentKey;const kName=k!==null?NM[k]:'C';const kNotes=scaleNotes(k??0);let h='';
+  if(prog.length>=2&&k!==null){const degs=prog.map(c=>c.degree).filter(d=>d&&d!=='?');const pat=matchPat(degs);h+=`<div class="dn-box"><h4>検出された進行</h4><p>キー: <strong style="color:var(--acc)">${kName}</strong></p><p>${prog.map(c=>{const fn=getFunc(c.degree);const fnC={'T':'color:var(--acc)','SD':'color:var(--gold)','D':'color:var(--blue)'}[fn]||'';return`<strong style="${fnC}">${c.name}(${c.degree||'?'})</strong>`}).join(' → ')}</p><p style="margin-top:3px">機能: ${prog.map(c=>({'T':'安定','SD':'展開','D':'緊張'}[getFunc(c.degree)]||'?')).join('→')}</p>${pat?`<p style="color:var(--gold);margin-top:4px"><strong>${pat.name}</strong> — ${pat.desc}</p>`:''}</div>`}
+  h+=`<div class="ls"><h3>スケール → コードの仕組み</h3><p><span class="hi">${kName}メジャースケール</span>の7音:</p><p style="font-size:11px;letter-spacing:2px;text-align:center;color:var(--tx);margin:6px 0">${kNotes.join(' ')}</p><p>各音をルートにしてスケール内の音を1つ飛ばしに3つ重ねる → コードになる</p>`;
+  h+=`<table class="func-tbl"><tr><th>度数</th><th>コード</th><th>機能</th><th>♪</th></tr>`;
+  const fnL={'T':'<span style="color:var(--acc)">T</span>','SD':'<span style="color:var(--gold)">SD</span>','D':'<span style="color:var(--blue)">D</span>'};
+  DIA.forEach(d=>{const cn=NM[((k??0)+d.o)%12]+d.t;const v=VOI[cn]?VOI[cn][0]:null;h+=`<tr><td class="ft">${d.d}</td><td>${cn}</td><td>${fnL[d.fn]}</td><td><span style="cursor:pointer;color:var(--acc)" onclick="event.stopPropagation();playChord('${cn}',${v?JSON.stringify(v):'null'})">♪</span></td></tr>`});
   h+=`</table></div>`;
-
-  // ── 2. 三大機能 ──
-  h+=`<div class="ls"><h3>和声の三大機能</h3>`;
-  h+=`<p>すべてのコードは3つの「機能」のどれかに属する。曲はこの3つの間を行き来する。</p>`;
-
-  h+=`<div class="lc" onclick="this.classList.toggle('open')"><h4><span class="tg t-t">T</span> トニック（安定）</h4><div class="ld">`;
-  h+=`<p><strong>I, iii, vi</strong> が該当</p>`;
-  if(k!==null)h+=`<p style="color:var(--acc)">Key ${kName}: ${kn('I')}, ${kn('iii')}, ${kn('vi')}</p>`;
-  h+=`<p>「家」のような安心感。曲はここから始まり、ここに帰る。</p>`;
-  h+=`<p><strong>なぜIが安定なのか?</strong><br>スケールの最も基本の音（主音）を根音に持つから。耳がここを「基準」として認識する。viはIと2つの共通音を持つため、「暗い版のI」として同じ安定感がある。</p>`;
-  h+=`</div></div>`;
-
-  h+=`<div class="lc" onclick="this.classList.toggle('open')"><h4><span class="tg t-s">SD</span> サブドミナント（展開）</h4><div class="ld">`;
-  h+=`<p><strong>IV, ii</strong> が該当</p>`;
-  if(k!==null)h+=`<p style="color:var(--gold)">Key ${kName}: ${kn('IV')}, ${kn('ii')}</p>`;
-  h+=`<p>「外出」のような広がり。安定から離れて動き出す。</p>`;
-  h+=`<p><strong>なぜIVが「動き出し」なのか?</strong><br>Iの根音から完全4度上。Iとは1つだけ共通音があり、「近いけど違う場所」という感覚を作る。iiはIVと2つの共通音を持つので代理として使える。</p>`;
-  h+=`</div></div>`;
-
-  h+=`<div class="lc" onclick="this.classList.toggle('open')"><h4><span class="tg t-d">D</span> ドミナント（緊張）</h4><div class="ld">`;
-  h+=`<p><strong>V, vii°</strong> が該当</p>`;
-  if(k!==null)h+=`<p style="color:var(--blue)">Key ${kName}: ${kn('V')}, ${kn('vii°')}</p>`;
-  h+=`<p>「帰りたくなる」緊張感。この後にIが来ると強い解決感。</p>`;
-  h+=`<p><strong>なぜVがIに戻りたいのか?</strong><br>Vには「導音」（スケールの7番目の音）が含まれる。この音は主音の半音下にあり、半音上に解決する強い引力を持つ。`;
-  if(k!==null){
-    const leadingTone=NM[(k+11)%12];
-    const tonic=NM[k];
-    h+=`<br>Key ${kName}では: <span style="color:var(--blue)">${leadingTone}</span>→<span style="color:var(--acc)">${tonic}</span> の半音の引力。`;
-  }
-  h+=`</p></div></div>`;
-  h+=`</div>`;
-
-  // ── 3. 基本の進行ルール ──
-  h+=`<div class="ls"><h3>コードの動き方のルール</h3>`;
-  h+=`<p>和声学の基本原則: <strong>T → SD → D → T</strong></p>`;
-  h+=`<p>安定→展開→緊張→安定、のサイクル。ただしショートカットや逆行もよく使われる:</p>`;
-  h+=`<div class="lc" onclick="this.classList.toggle('open')"><h4>よくある動き</h4><div class="ld">`;
-  h+=`<p><span class="hi">T→SD</span>: 安定から動き出す（I→IV）<br>`;
-  h+=`<span class="hg">SD→D</span>: 展開から緊張へ（IV→V, ii→V）<br>`;
-  h+=`<span class="hb">D→T</span>: 緊張から解決（V→I）← 最も強い進行<br>`;
-  h+=`<span class="hi">T→D</span>: SDを飛ばして直接緊張（I→V）<br>`;
-  h+=`<span class="hb">D→SD</span>: 「偽終止」。期待を裏切る（V→IV, V→vi）</p>`;
-  if(k!==null){
-    h+=`<p style="margin-top:4px">Key ${kName}の場合:<br>`;
-    h+=`${kn('I')}→${kn('IV')}→${kn('V')}→${kn('I')} (基本)<br>`;
-    h+=`${kn('I')}→${kn('vi')}→${kn('IV')}→${kn('V')} (循環)<br>`;
-    h+=`${kn('V')}→${kn('vi')} (偽終止: ${kn('I')}に行くと思わせて${kn('vi')})</p>`;
-  }
-  h+=`</div></div></div>`;
-
-  // ── 4. 定番進行パターン ──
+  h+=`<div class="ls"><h3>三大機能 — なぜそう呼ばれるか</h3>`;
+  h+=`<div class="lc" onclick="this.classList.toggle('open')"><h4><span class="tg t-t">T</span> トニック</h4><div class="ld"><p>I, iii, vi — 安定。「家」。</p>${k!==null?`<p style="color:var(--acc)">Key ${kName}: ${kn('I')}, ${kn('iii')}, ${kn('vi')}</p>`:''}<p><strong>なぜ安定?</strong> スケールの主音を根音に持つIが基準点。viはIと2つの共通音を共有するので「暗い版の家」。iiiも同様に共通音でIに近い。</p></div></div>`;
+  h+=`<div class="lc" onclick="this.classList.toggle('open')"><h4><span class="tg t-s">SD</span> サブドミナント</h4><div class="ld"><p>IV, ii — 展開。「外出」。</p>${k!==null?`<p style="color:var(--gold)">Key ${kName}: ${kn('IV')}, ${kn('ii')}</p>`:''}<p><strong>なぜ展開?</strong> IVはIから完全4度上。Iと共通音が1つだけなので「近いけど違う場所」。iiはIVの代理（共通音2つ）。</p></div></div>`;
+  h+=`<div class="lc" onclick="this.classList.toggle('open')"><h4><span class="tg t-d">D</span> ドミナント</h4><div class="ld"><p>V, vii° — 緊張。「帰りたい」。</p>${k!==null?`<p style="color:var(--blue)">Key ${kName}: ${kn('V')}, ${kn('vii°')}</p>`:''}<p><strong>なぜIに帰りたくなる?</strong> Vには<strong>導音</strong>（スケール7番目の音）が含まれる。導音は主音の半音下にあり、半音上に解決しようとする強い引力を持つ。${k!==null?`<br>Key ${kName}では: <span class="hb">${NM[(k+11)%12]}</span>→<span class="hi">${NM[k]}</span> の半音の引力。`:''}</p></div></div></div>`;
+  h+=`<div class="ls"><h3>基本の動き方</h3><p>原則: <strong class="hi">T</strong> → <strong class="hg">SD</strong> → <strong class="hb">D</strong> → <strong class="hi">T</strong></p><p>安定→展開→緊張→解決のサイクル。</p>`;
+  h+=`<div class="lc" onclick="this.classList.toggle('open')"><h4>よくある動きと理由</h4><div class="ld"><p><span class="hi">T→SD</span> 安定から動き出す<br><span class="hg">SD→D</span> 展開から緊張へ<br><span class="hb">D→T</span> 最強の解決 (V→I)<br><span class="hb">D→T代理</span> 偽終止 (V→vi) — 期待を裏切る</p>${k!==null?`<p style="margin-top:4px">Key ${kName}:<br>${kn('I')}→${kn('IV')}→${kn('V')}→${kn('I')} (基本)<br>${kn('V')}→${kn('vi')} (偽終止)</p>`:''}</div></div></div>`;
   h+=`<div class="ls"><h3>定番進行パターン</h3>`;
-  PATS.forEach(p=>{
-    h+=`<div class="lc" onclick="this.classList.toggle('open')"><h4>${p.name}</h4><div class="ld"><div class="dr">${p.degs.map(d=>`<span class="dg">${d}</span>`).join('→')}</div>`;
-    // Show function flow
-    const fns=p.degs.map(d=>{const di=DIA.find(x=>x.d===d);return di?{'T':'安定','SD':'展開','D':'緊張'}[di.fn]:'?'});
-    h+=`<p style="margin-top:4px;font-size:7px;color:var(--dm)">機能: ${fns.join('→')}</p>`;
-    if(k!==null){const cc=p.degs.map(dg=>{const di=DIA.find(x=>x.d===dg);return di?NM[(k+di.o)%12]+di.t:dg});h+=`<p style="color:var(--blue)">Key ${kName}: ${cc.join(' → ')}</p>`}
-    h+=`<p style="margin-top:4px">${p.desc}</p><p style="font-size:7px;color:var(--dm)">例: ${p.ex}</p></div></div>`;
-  });
+  PATS.forEach(p=>{h+=`<div class="lc" onclick="this.classList.toggle('open')"><h4>${p.name}</h4><div class="ld"><div class="dr">${p.degs.map(d=>`<span class="dg">${d}</span>`).join('→')}</div><p style="margin-top:4px;font-size:7px;color:var(--dm)">機能: ${p.degs.map(d=>{const di=DIA.find(x=>x.d===d);return di?{'T':'安定','SD':'展開','D':'緊張'}[di.fn]:'?'}).join('→')}</p>${k!==null?`<p style="color:var(--blue)">Key ${kName}: ${p.degs.map(dg=>{const di=DIA.find(x=>x.d===dg);return di?NM[(k+di.o)%12]+di.t:dg}).join(' → ')}</p>`:''}<p style="margin-top:4px">${p.desc}</p><p style="font-size:7px;color:var(--dm)">例: ${p.ex}</p></div></div>`});
   h+=`</div>`;
-
-  // ── 5. 度数一覧 ──
-  h+=`<div class="ls"><h3>ディグリー早見表</h3>`;
-  [{d:'I',r:'トニック',ds:'家。基準。安定の極み。'},{d:'ii',r:'サブドミ系',ds:'IVの弟。柔らかく動き出す。'},{d:'iii',r:'トニック代理',ds:'Iの影。ほんのり切ない。'},{d:'IV',r:'サブドミナント',ds:'広がり。「次」に行きたくなる。'},{d:'V',r:'ドミナント',ds:'緊張。Iに帰りたい。導音の力。'},{d:'vi',r:'マイナートニック',ds:'暗いけど安定。Iの裏。'},{d:'vii°',r:'ドミナント代理',ds:'最も不安定。すぐ解決したい。'}].forEach(x=>{
-    const fn=DIA.find(d=>d.d===x.d)?.fn;
-    const cls={'T':'t-t','SD':'t-s','D':'t-d'}[fn]||'t-t';
-    h+=`<div class="lc" onclick="this.classList.toggle('open')"><h4>${x.d} <span class="tg ${cls}">${x.r}</span></h4><div class="ld"><p>${x.ds}</p>`;
-    if(k!==null)h+=`<p style="color:var(--blue)">Key ${kName}: <strong>${kn(x.d)}</strong></p>`;
-    h+=`</div></div>`;
-  });
-  h+=`</div>`;
-
   el.innerHTML=h;
 }
 
-// ═══ TAB ═══
 const tc=document.getElementById('tc'),tx=tc.getContext('2d');
 function resz(){const r=tc.parentElement.getBoundingClientRect(),d=window.devicePixelRatio||1;tc.width=r.width*d;tc.height=r.height*d;tc.style.width=r.width+'px';tc.style.height=r.height+'px'}
 window.addEventListener('resize',resz);resz();const VIS=8;
