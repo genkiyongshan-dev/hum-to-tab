@@ -131,16 +131,28 @@ const CPAT={'':[0,4,7],'m':[0,3,7],'7':[0,4,7,10]};
 function detectChord(midis,preds){if(midis.length<2)return null;const pc=[...new Set(midis.map(m=>((Math.round(m)%12)+12)%12))];if(pc.length<2)return null;let cands=[];for(let r=0;r<12;r++){for(const[sf,pt]of Object.entries(CPAT)){const cpc=pt.map(p=>(r+p)%12);const h=pc.filter(p=>cpc.includes(p)).length;const rs=h/Math.max(pc.length,cpc.length);if(h<2||rs<.3)continue;const nm=NM[r]+sf;let boost=0;const pr=preds.find(p=>p.name===nm);if(pr)boost=pr.weight*.07;else if(currentKey!==null&&getDeg(nm,currentKey)!=='?')boost=.05;cands.push({name:nm,notes:cpc.map(p=>NM[p]),score:rs+boost})}}cands.sort((a,b)=>b.score-a.score);return cands.length&&cands[0].score>.45?cands[0]:null}
 
 // ═══ CHROMA-BASED CHORD DETECTION (for guitar mode) ═══
+// All thresholds scale with sensitivity slider (1=strict, 10=loose)
+function getGtrSens(){
+  const t=(sens-1)/9; // 0..1
+  return {
+    magFloor:  0.001*(1-t)+0.000005*t,   // bin magnitude cutoff
+    silenceMax:0.005*(1-t)+0.00005*t,     // chroma silence threshold
+    activePC:  0.35*(1-t)+0.1*t,          // pitch class activation
+    minScore:  0.25*(1-t)+0.08*t,         // minimum chord score
+    penaltyTh: 0.5*(1-t)+0.25*t,          // non-chord-tone penalty threshold
+  };
+}
+
 function chromaDetect(analyser, preds){
+  const gs=getGtrSens();
   const fftSize=analyser.fftSize;
   const freqData=new Float32Array(analyser.frequencyBinCount);
   analyser.getFloatFrequencyData(freqData);
-  const sr=playCtx?playCtx.sampleRate:(actx?actx.sampleRate:44100);
+  const sr=actx?actx.sampleRate:44100;
   const binHz=sr/fftSize;
 
   // Build chroma vector (12 pitch classes)
   const chroma=new Float32Array(12);
-  // Focus on guitar range: ~80Hz (E2) to ~1200Hz (high frets)
   const minBin=Math.floor(75/binHz);
   const maxBin=Math.min(Math.floor(1300/binHz),freqData.length-1);
 
@@ -148,7 +160,7 @@ function chromaDetect(analyser, preds){
     const freq=i*binHz;
     if(freq<75)continue;
     const mag=Math.pow(10,freqData[i]/20); // dB to linear
-    if(mag<0.001)continue;
+    if(mag<gs.magFloor)continue;
     const midi=69+12*Math.log2(freq/440);
     const pc=((Math.round(midi)%12)+12)%12;
     chroma[pc]+=mag;
@@ -156,14 +168,13 @@ function chromaDetect(analyser, preds){
 
   // Normalize
   const maxC=Math.max(...chroma);
-  if(maxC<0.005)return null;
+  if(maxC<gs.silenceMax)return null;
   for(let i=0;i<12;i++)chroma[i]/=maxC;
 
-  // Find active pitch classes (above threshold)
-  const threshold=0.3;
+  // Find active pitch classes
   const activePCs=[];
   for(let i=0;i<12;i++){
-    if(chroma[i]>threshold)activePCs.push(i);
+    if(chroma[i]>gs.activePC)activePCs.push(i);
   }
   if(activePCs.length<2)return null;
 
@@ -172,15 +183,13 @@ function chromaDetect(analyser, preds){
   for(let r=0;r<12;r++){
     for(const[sf,pt]of Object.entries(CPAT)){
       const cpc=pt.map(p=>(r+p)%12);
-      // Score: sum of chroma energy at chord tones
       let energy=0;
       for(const p of cpc) energy+=chroma[p];
       energy/=cpc.length;
 
-      // Penalize if strong non-chord tones present
       let penalty=0;
       for(let i=0;i<12;i++){
-        if(!cpc.includes(i)&&chroma[i]>0.4) penalty+=chroma[i]*0.1;
+        if(!cpc.includes(i)&&chroma[i]>gs.penaltyTh) penalty+=chroma[i]*0.1;
       }
       let score=energy-penalty;
 
@@ -193,7 +202,7 @@ function chromaDetect(analyser, preds){
       if(score>bs){bs=score;best={name:nm,notes:cpc.map(p=>NM[p]),score}}
     }
   }
-  return bs>0.2?best:null;
+  return bs>gs.minScore?best:null;
 }
 
 // ═══ CHORD PLAYBACK ═══
