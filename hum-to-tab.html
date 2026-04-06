@@ -79,7 +79,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
   <div class="dgr" id="dgr"><div class="inner"><div class="cname" id="dN">--</div><canvas id="dC" width="130" height="100"></canvas><div class="info" id="dI"></div></div></div>
   <div class="tabw">
     <canvas id="tc"></canvas>
-    <div class="ov" id="ov"><div class="t"><h2>HUM → TAB</h2><p>マイクボタンを押して鼻歌や音源を入力<br><br>基本コード（メジャー/マイナー/7th）を<br>リアルタイム解析します</p></div></div>
+    <div class="ov" id="ov"><div><h2>HUM → TAB</h2><p>マイクボタンを押して<br>鼻歌や音源を入力<br><br>コード進行をリアルタイム解析</p></div></div>
   </div>
   <div class="ctrl">
     <button class="btn" onclick="clearAll()">CLEAR</button>
@@ -108,7 +108,7 @@ const VOI={
 'Abm':[[4,6,6,4,4,4]],'Bbm':[[-1,1,3,3,2,1]],
 };
 
-const CPAT={'':  [0,4,7],'m':[0,3,7],'7':[0,4,7,10]};
+const CPAT={'':[0,4,7],'m':[0,3,7],'7':[0,4,7,10]};
 
 function detectChord(midis){
   if(midis.length<2)return null;
@@ -126,7 +126,6 @@ function detectChord(midis){
   return bs>.5?best:null;
 }
 
-// Position optimizer
 function allPos(midi){const n=Math.round(midi),r=[];for(let i=0;i<6;i++){const f=n-TUN[i];if(f>=0&&f<=19)r.push({str:i,fret:f})}return r}
 function pickPos(midi,ps,pf){
   const c=allPos(midi);if(!c.length)return null;
@@ -135,8 +134,7 @@ function pickPos(midi,ps,pf){
     const da=Math.abs(a.fret-pf)*3+(a.str===ps?5:0)+Math.abs(a.str-ps)*.5;
     const db=Math.abs(b.fret-pf)*3+(b.str===ps?5:0)+Math.abs(b.str-ps)*.5;
     return da-db;
-  });
-  return c[0];
+  });return c[0];
 }
 function reOpt(notes,start){
   const end=Math.min(notes.length,start+5);
@@ -144,32 +142,81 @@ function reOpt(notes,start){
   for(let i=start;i<end;i++){const p=pickPos(notes[i].midi,ps,pf);if(p){notes[i].str=p.str;notes[i].fret=p.fret;notes[i].color=SC[p.str];ps=p.str;pf=p.fret}}
 }
 
-// ─── State ───
 let mode='tab',rec=false,actx=null,ana=null,strm=null;
 let notes=[],t0=0,prog=[],cWin=1500;
 let lastMidi=-1,lastT=0,selC=-1;
-
-// Pitch stability: median of 3
 let pBuf=[];
+let chordBuf=[];
+let lastChordTime=0;
+const MIN_CHORD_INT=600;
+
 function stablePitch(raw){
-  pBuf.push(raw);
-  if(pBuf.length>3)pBuf.shift();
+  pBuf.push(raw);if(pBuf.length>3)pBuf.shift();
   if(pBuf.length<2)return raw;
   const s=[...pBuf].sort((a,b)=>a-b);
   return s[Math.floor(s.length/2)];
 }
 
-// Chord buffer: sliding window of recent MIDI notes with timestamps
-let chordBuf=[]; // {midi, time}
-let lastChordTime=0; // prevent rapid chord changes
-const MIN_CHORD_INTERVAL=600; // ms between chord changes
+// ─── Improved autocorrelation with confidence check ───
+function acorr(buf,sr){
+  const N=buf.length;
+  let rms=0;
+  for(let i=0;i<N;i++) rms+=buf[i]*buf[i];
+  rms=Math.sqrt(rms/N);
+  if(rms<0.01) return -1; // slightly higher threshold to reject noise
 
-// ─── Audio ───
+  // Normalized autocorrelation (NSDF-like approach)
+  const halfN=Math.floor(N/2);
+  const corr=new Float32Array(halfN);
+  const norm=new Float32Array(halfN);
+
+  for(let tau=0;tau<halfN;tau++){
+    let sum=0, sumSq1=0, sumSq2=0;
+    for(let i=0;i<N-tau;i++){
+      sum+=buf[i]*buf[i+tau];
+      sumSq1+=buf[i]*buf[i];
+      sumSq2+=buf[i+tau]*buf[i+tau];
+    }
+    const denom=Math.sqrt(sumSq1*sumSq2);
+    corr[tau]=denom>0?sum/denom:0;
+    norm[tau]=sum;
+  }
+
+  // Find first dip below 0
+  let firstDip=1;
+  while(firstDip<halfN-1 && corr[firstDip]>0) firstDip++;
+
+  // Find best peak after first dip
+  let bestTau=-1, bestVal=-1;
+  for(let i=firstDip;i<halfN-1;i++){
+    if(corr[i]>corr[i-1]&&corr[i]>corr[i+1]&&corr[i]>bestVal){
+      bestVal=corr[i];
+      bestTau=i;
+    }
+  }
+
+  if(bestTau<1||bestVal<0.5) return -1; // confidence threshold
+
+  // Parabolic interpolation
+  if(bestTau>0&&bestTau<halfN-1){
+    const a=corr[bestTau-1],b=corr[bestTau],c2=corr[bestTau+1];
+    const delta=(a-c2)/(2*(a-2*b+c2));
+    if(Math.abs(delta)<1) bestTau+=delta;
+  }
+
+  const freq=sr/bestTau;
+  // Reject if outside instrument range
+  if(freq<65||freq>1100) return -1;
+  return freq;
+}
+
 async function startA(){
   actx=new(window.AudioContext||window.webkitAudioContext)();
   strm=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:true}});
   const s=actx.createMediaStreamSource(strm);
-  ana=actx.createAnalyser();ana.fftSize=4096;s.connect(ana);
+  ana=actx.createAnalyser();
+  ana.fftSize=8192; // larger FFT for better low-freq resolution
+  s.connect(ana);
   t0=performance.now();rec=true;pBuf=[];chordBuf=[];lastChordTime=0;
   document.getElementById('mic').classList.add('on');
   document.getElementById('ov').classList.add('hide');
@@ -182,28 +229,7 @@ function stopA(){
 }
 function toggle(){rec?stopA():startA().catch(e=>console.error(e))}
 
-// Autocorrelation
-function acorr(buf,sr){
-  const N=buf.length;let rms=0;
-  for(let i=0;i<N;i++)rms+=buf[i]*buf[i];
-  rms=Math.sqrt(rms/N);if(rms<.008)return-1;
-  let r1=0,r2=N-1;
-  for(let i=0;i<N/2;i++)if(Math.abs(buf[i])<.2){r1=i;break}
-  for(let i=1;i<N/2;i++)if(Math.abs(buf[N-i])<.2){r2=N-i;break}
-  const tb=buf.slice(r1,r2),tN=tb.length;
-  const c=new Float32Array(tN);
-  for(let i=0;i<tN;i++)for(let j=0;j<tN-i;j++)c[i]+=tb[j]*tb[j+i];
-  let d=0;while(c[d]>c[d+1])d++;
-  let mx=-1,mp=-1;
-  for(let i=d;i<tN;i++)if(c[i]>mx){mx=c[i];mp=i}
-  let T=mp;
-  if(T>0&&T<tN-1){const x1=c[T-1],x2=c[T],x3=c[T+1],a=(x1+x3-2*x2)/2,b=(x3-x1)/2;if(a)T-=b/(2*a)}
-  return sr/T;
-}
-
-// ─── Main loop ───
-const NOTE_GAP=150;
-const SAME_GAP=400;
+const NOTE_GAP=150,SAME_GAP=400;
 
 function loop(){
   if(!rec)return;
@@ -212,7 +238,7 @@ function loop(){
   const rawFreq=acorr(buf,actx.sampleRate);
   const now=performance.now();
 
-  if(rawFreq>70&&rawFreq<1100){
+  if(rawFreq>0){
     const rawMidi=69+12*Math.log2(rawFreq/440);
     const midi=stablePitch(rawMidi);
     const rm=Math.round(midi);
@@ -222,7 +248,6 @@ function loop(){
     document.getElementById('pNote').classList.add('on');
     document.getElementById('pHz').textContent=rawFreq.toFixed(0);
 
-    // TAB notes
     const gap=rm===lastMidi?SAME_GAP:NOTE_GAP;
     if(rm!==lastMidi||(now-lastT)>gap){
       const elapsed=(now-t0)/1000;
@@ -235,15 +260,10 @@ function loop(){
       }
     }
 
-    // ─── Chord detection (fixed) ───
-    // Add to sliding window
     chordBuf.push({midi:rm,time:now});
-    // Remove old entries outside the window
     chordBuf=chordBuf.filter(n=>now-n.time<cWin);
 
-    // Only try chord detection if enough time since last chord change
-    if(now-lastChordTime>MIN_CHORD_INTERVAL){
-      // Get unique pitches in the window
+    if(now-lastChordTime>MIN_CHORD_INT){
       const uq=[...new Set(chordBuf.map(n=>n.midi))];
       const ch=detectChord(uq);
       if(ch){
@@ -253,7 +273,6 @@ function loop(){
           const v=VOI[ch.name]?VOI[ch.name][0]:null;
           prog.push({name:ch.name,time:elapsed,voicing:v,notes:ch.notes});
           lastChordTime=now;
-          // Clear buffer so new chord starts fresh
           chordBuf=[];
           updStrip();
         }
@@ -261,19 +280,14 @@ function loop(){
     }
   } else {
     document.getElementById('pNote').classList.remove('on');
-    // Silence: clear chord buffer so next sound starts fresh
     if(chordBuf.length>0){
-      const silenceThreshold=300; // ms of silence before clearing
-      const lastEntry=chordBuf[chordBuf.length-1];
-      if(now-lastEntry.time>silenceThreshold){
-        chordBuf=[];
-      }
+      const last=chordBuf[chordBuf.length-1];
+      if(now-last.time>300) chordBuf=[];
     }
   }
   requestAnimationFrame(loop);
 }
 
-// ─── Chord strip ───
 function updStrip(){
   const el=document.getElementById('cbar');
   let h='<span class="lbl">進行</span>';
@@ -282,12 +296,10 @@ function updStrip(){
     const cls=i===prog.length-1?'tag now':i===selC?'tag sel':'tag';
     h+=`<span class="${cls}" onclick="showDgr(${i})">${c.name}</span>`;
   });
-  el.innerHTML=h;
-  el.scrollLeft=el.scrollWidth;
+  el.innerHTML=h;el.scrollLeft=el.scrollWidth;
   if(prog.length>0)showDgr(prog.length-1);
 }
 
-// ─── Diagram ───
 function showDgr(i){
   selC=i;const c=prog[i];if(!c)return;
   document.getElementById('dgr').classList.add('open');
@@ -297,9 +309,7 @@ function showDgr(i){
   if(c.voicing){
     inf.innerHTML=`E  A  D  G  B  e<br>${c.voicing.map(f=>f===-1?'x':f).join('  ')}<br><br>構成音: ${c.notes.join(' · ')}`;
     drawDgr(c.voicing);
-  } else {
-    inf.innerHTML=`構成音: ${c.notes.join(' · ')}`;drawDgrE();
-  }
+  } else {inf.innerHTML=`構成音: ${c.notes.join(' · ')}`;drawDgrE()}
 }
 
 function drawDgr(v){
@@ -329,54 +339,115 @@ function drawDgrE(){
   c.scale(d,d);c.clearRect(0,0,130,100);c.fillStyle='#333';c.font='9px JetBrains Mono';c.textAlign='center';c.textBaseline='middle';c.fillText('—',65,50);
 }
 
-// ─── TAB canvas ───
+// ═══ TAB canvas - FIXED: 6 strings properly spaced ═══
 const tc=document.getElementById('tc'),tx=tc.getContext('2d');
-function resz(){const r=tc.parentElement.getBoundingClientRect(),d=window.devicePixelRatio||1;tc.width=r.width*d;tc.height=r.height*d;tc.style.width=r.width+'px';tc.style.height=r.height+'px'}
+function resz(){
+  const r=tc.parentElement.getBoundingClientRect(),d=window.devicePixelRatio||1;
+  tc.width=r.width*d;tc.height=r.height*d;
+  tc.style.width=r.width+'px';tc.style.height=r.height+'px';
+}
 window.addEventListener('resize',resz);resz();
 const VIS=8;
 
 function draw(){
-  const d=window.devicePixelRatio||1,w=tc.width,h=tc.height;
+  const d=window.devicePixelRatio||1;
+  const w=tc.width, h=tc.height;
   tx.clearRect(0,0,w,h);
-  const P={t:20*d,b:14*d,l:22*d,r:14*d};
-  const dh=h-P.t-P.b,ss=dh/7;
+
+  // Padding: enough top space for chord labels, bottom for time
+  const padT=16*d;  // top: chord name area
+  const padB=16*d;  // bottom: time labels
+  const padL=24*d;  // left: string labels
+  const padR=14*d;  // right
+
+  const drawH=h-padT-padB;
+
+  // 6 strings: divide available height into 7 equal parts,
+  // place strings at positions 1-6 (leaving margin top and bottom)
+  const gap=drawH/7;
+
+  // String Y positions (0=e high, 5=E low)
+  const strY=[];
+  for(let i=0;i<6;i++) strY.push(padT+gap*(i+0.5));
+
+  // Draw 6 strings with labels
   for(let i=0;i<6;i++){
-    const y=P.t+ss*(i+.5);
-    tx.beginPath();tx.moveTo(P.l,y);tx.lineTo(w-P.r,y);tx.strokeStyle=SC[i]+'22';tx.lineWidth=1*d;tx.stroke();
-    tx.fillStyle=SC[i]+'60';tx.font=`${8*d}px JetBrains Mono`;tx.textAlign='right';tx.textBaseline='middle';tx.fillText(SL[i],P.l-3*d,y);
+    const y=strY[i];
+    tx.beginPath();tx.moveTo(padL,y);tx.lineTo(w-padR,y);
+    tx.strokeStyle=SC[i]+'28';tx.lineWidth=1*d;tx.stroke();
+
+    // String label on left
+    tx.fillStyle=SC[i]+'80';
+    tx.font=`bold ${9*d}px JetBrains Mono`;
+    tx.textAlign='right';tx.textBaseline='middle';
+    tx.fillText(SL[i],padL-4*d,y);
   }
+
+  // Timeline
   const elapsed=rec?(performance.now()-t0)/1000:(notes.length>0?notes[notes.length-1].time+1:0);
   const wE=elapsed,wS=wE-VIS;
-  const phX=w-P.r-28*d;
-  tx.beginPath();tx.moveTo(phX,P.t);tx.lineTo(phX,P.t+dh);tx.strokeStyle='#ff6b6b20';tx.lineWidth=1.5*d;tx.stroke();
-  const pxS=(phX-P.l)/VIS;
+  const phX=w-padR-28*d;
 
+  // Playhead line
+  tx.beginPath();tx.moveTo(phX,padT);tx.lineTo(phX,padT+drawH);
+  tx.strokeStyle='#ff6b6b20';tx.lineWidth=1.5*d;tx.stroke();
+
+  const pxS=(phX-padL)/VIS;
+
+  // Chord regions
   for(let ci=0;ci<prog.length;ci++){
-    const c=prog[ci];const nt=ci<prog.length-1?prog[ci+1].time:elapsed;
-    const x0=P.l+(c.time-wS)*pxS,x1=P.l+(nt-wS)*pxS;
-    if(x1<P.l||x0>w-P.r)continue;
-    const cx0=Math.max(P.l,x0),cx1=Math.min(w-P.r,x1);
-    tx.fillStyle='rgba(255,107,107,.02)';tx.fillRect(cx0,P.t,cx1-cx0,dh);
-    if(cx0>=P.l){tx.fillStyle='#ff6b6b35';tx.font=`bold ${8*d}px JetBrains Mono`;tx.textAlign='left';tx.textBaseline='bottom';tx.fillText(c.name,cx0+2*d,P.t-2*d)}
+    const c=prog[ci];
+    const nt=ci<prog.length-1?prog[ci+1].time:elapsed;
+    const x0=padL+(c.time-wS)*pxS, x1=padL+(nt-wS)*pxS;
+    if(x1<padL||x0>w-padR) continue;
+    const cx0=Math.max(padL,x0),cx1=Math.min(w-padR,x1);
+    tx.fillStyle='rgba(255,107,107,.02)';
+    tx.fillRect(cx0,padT,cx1-cx0,drawH);
+    if(cx0>=padL){
+      tx.fillStyle='#ff6b6b40';
+      tx.font=`bold ${8*d}px JetBrains Mono`;
+      tx.textAlign='left';tx.textBaseline='bottom';
+      tx.fillText(c.name,cx0+2*d,padT-2*d);
+    }
   }
+
+  // Notes on TAB
   for(const n of notes){
-    const dt=n.time-wS;if(dt<-.5||dt>VIS+.5)continue;
-    const x=P.l+dt*pxS,y=P.t+ss*(n.str+.5);
+    const dt=n.time-wS;
+    if(dt<-.5||dt>VIS+.5) continue;
+    const x=padL+dt*pxS;
+    const y=strY[n.str]; // use correct string Y position
+
     const ft=String(n.fret);
-    tx.font=`bold ${11*d}px JetBrains Mono`;
+    tx.font=`bold ${12*d}px JetBrains Mono`;
     const tw=tx.measureText(ft).width;
-    const bw=Math.max(tw+5*d,14*d),bh=14*d;
-    tx.fillStyle=n.color+'15';tx.beginPath();tx.roundRect(x-bw/2,y-bh/2,bw,bh,3*d);tx.fill();
-    tx.strokeStyle=n.color+'40';tx.lineWidth=1*d;tx.stroke();
-    tx.fillStyle=n.color;tx.textAlign='center';tx.textBaseline='middle';tx.fillText(ft,x,y);
+    const bw=Math.max(tw+6*d,16*d), bh=16*d;
+
+    // Background
+    tx.fillStyle=n.color+'18';
+    tx.beginPath();tx.roundRect(x-bw/2,y-bh/2,bw,bh,3*d);tx.fill();
+    tx.strokeStyle=n.color+'45';tx.lineWidth=1*d;tx.stroke();
+
+    // Fret number
+    tx.fillStyle=n.color;
+    tx.textAlign='center';tx.textBaseline='middle';
+    tx.fillText(ft,x,y);
   }
-  tx.fillStyle='#1a1a1a';tx.font=`${6*d}px JetBrains Mono`;tx.textAlign='center';tx.textBaseline='top';
-  for(let t=Math.ceil(wS);t<=Math.floor(wE);t++){if(t<0)continue;const x=P.l+(t-wS)*pxS;if(x>=P.l&&x<=w-P.r)tx.fillText(t+'s',x,P.t+dh+2*d)}
+
+  // Time ticks
+  tx.fillStyle='#1a1a1a';
+  tx.font=`${6*d}px JetBrains Mono`;
+  tx.textAlign='center';tx.textBaseline='top';
+  for(let t=Math.ceil(wS);t<=Math.floor(wE);t++){
+    if(t<0)continue;
+    const x=padL+(t-wS)*pxS;
+    if(x>=padL&&x<=w-padR) tx.fillText(t+'s',x,padT+drawH+3*d);
+  }
+
   requestAnimationFrame(draw);
 }
 draw();
 
-// ─── UI ───
 function setMode(m,btn){mode=m;document.querySelectorAll('.tog button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');if(m==='chord'&&prog.length>0)showDgr(prog.length-1)}
 function setIn(s){document.getElementById('cMic').classList.toggle('on',s==='mic');document.getElementById('cAud').classList.toggle('on',s==='audio');if(rec){stopA();startA().catch(e=>console.error(e))}}
 function clearAll(){notes=[];chordBuf=[];prog=[];lastMidi=-1;selC=-1;pBuf=[];lastChordTime=0;document.getElementById('pNote').textContent='--';document.getElementById('pHz').textContent='---';document.getElementById('cbar').innerHTML='<span class="lbl">進行</span>';document.getElementById('dgr').classList.remove('open');if(rec)t0=performance.now()}
