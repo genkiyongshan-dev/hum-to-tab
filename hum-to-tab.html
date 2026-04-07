@@ -502,12 +502,27 @@ async function analyzeRecording(){
   const data=audioBuf.getChannelData(0);
   const totalSec=data.length/sr;
 
-  // ═══ STEP 1: BPM detection with half-tempo correction ═══
+  // ═══ STEP 1: BPM detection with smart correction ═══
   document.getElementById('snapI').textContent='テンポ検出中...';
   let detectedBPM=detectBPM(data,sr);
-  // Half-tempo correction: if BPM < 85, likely detected half-tempo
-  if(detectedBPM<85) detectedBPM*=2;
-  const barSec=(60/detectedBPM)*4; // 4 beats per bar
+  // Try both original and doubled BPM, pick the one giving ~4-12 chords for 20s
+  const bpmCandidates=[detectedBPM];
+  if(detectedBPM<100) bpmCandidates.push(detectedBPM*2);
+  if(detectedBPM>150) bpmCandidates.push(detectedBPM/2);
+
+  let bestBPM=detectedBPM;
+  let bestBarsScore=0;
+  for(const bpm of bpmCandidates){
+    const bs=(60/bpm)*4;
+    const nb=Math.floor(totalSec/bs);
+    // Ideal: ~4-10 bars for 20 seconds of music
+    const idealBars=totalSec/2.5; // roughly 1 chord per 2.5 seconds
+    const score=1/(1+Math.abs(nb-idealBars));
+    if(score>bestBarsScore){bestBarsScore=score;bestBPM=bpm}
+  }
+
+  detectedBPM=bestBPM;
+  const barSec=(60/detectedBPM)*4;
   tempo=Math.round(detectedBPM);
   document.getElementById('tempoVal').textContent=tempo;
 
@@ -554,62 +569,119 @@ async function analyzeRecording(){
   });
 
   // ═══ STEP 4: Match against known progression patterns ═══
+  // Use BOTH tension curve AND root movement for matching
+  // Also try all possible offsets (intro may shift the pattern start)
   document.getElementById('snapI').textContent='パターンマッチング中...';
 
-  // Generate tension templates from known patterns
+  // Extract dominant root per bar from chroma
+  const barRoots=barChromas.map(ch=>{
+    if(!ch)return 0;
+    let best=0,bv=0;
+    for(let i=0;i<12;i++){if(ch[i]>bv){bv=ch[i];best=i}}
+    return best;
+  });
+
+  // Root movement: intervals between consecutive bars (in semitones)
+  const rootMovement=[];
+  for(let i=1;i<barRoots.length;i++){
+    let diff=barRoots[i]-barRoots[i-1];
+    if(diff>6) diff-=12; if(diff<-6) diff+=12;
+    rootMovement.push(diff);
+  }
+
   const patternResults=[];
 
   for(const pat of PATS){
-    // Build tension template for this pattern
-    const patTensions=pat.degs.map(deg=>{
+    // Build root movement template from pattern degrees
+    const patRoots=pat.degs.map(deg=>{
       const d=DIA.find(x=>x.d===deg);
-      if(!d) return 0.5;
-      return d.fn==='T'?0:d.fn==='SD'?0.5:1;
+      return d?d.o:0;
     });
-
-    // Stretch/tile pattern to match number of bars
-    const template=[];
-    for(let i=0;i<numBars;i++){
-      template.push(patTensions[i%patTensions.length]);
+    const patRootMovement=[];
+    for(let i=1;i<patRoots.length;i++){
+      let diff=patRoots[i]-patRoots[i-1];
+      if(diff>6)diff-=12;if(diff<-6)diff+=12;
+      patRootMovement.push(diff);
     }
 
-    // Compute shape similarity (correlation)
-    let corr=0,n1=0,n2=0;
-    const m1=energyCurve.reduce((a,b)=>a+b,0)/numBars;
-    const m2=template.reduce((a,b)=>a+b,0)/numBars;
-    for(let i=0;i<numBars;i++){
-      const d1=energyCurve[i]-m1, d2=template[i]-m2;
-      corr+=d1*d2; n1+=d1*d1; n2+=d2*d2;
+    // Try matching at different offsets (0, 1, 2... bars into the pattern)
+    // This handles intros that start partway through the pattern
+    let bestSim=-Infinity;
+
+    for(let offset=0;offset<pat.degs.length;offset++){
+      // Build template with this offset
+      const templateMovement=[];
+      for(let i=0;i<rootMovement.length;i++){
+        const patIdx=(i+offset)%patRootMovement.length;
+        templateMovement.push(patRootMovement[patIdx]);
+      }
+
+      // Correlation of root movement (this distinguishes canon from royal road)
+      if(rootMovement.length<2)continue;
+      let corr=0,n1=0,n2=0;
+      const m1=rootMovement.reduce((a,b)=>a+b,0)/rootMovement.length;
+      const m2=templateMovement.reduce((a,b)=>a+b,0)/templateMovement.length;
+      for(let i=0;i<Math.min(rootMovement.length,templateMovement.length);i++){
+        const d1=rootMovement[i]-m1, d2=templateMovement[i]-m2;
+        corr+=d1*d2;n1+=d1*d1;n2+=d2*d2;
+      }
+      const sim=n1>0&&n2>0?corr/Math.sqrt(n1*n2):0;
+
+      // Also check direct interval match count
+      let directMatch=0;
+      for(let i=0;i<Math.min(rootMovement.length,templateMovement.length);i++){
+        if(Math.abs(rootMovement[i]-templateMovement[i])<=1) directMatch++;
+      }
+      const matchRatio=rootMovement.length>0?directMatch/rootMovement.length:0;
+
+      const totalSim=sim*0.5+matchRatio*0.5; // blend correlation and direct match
+      if(totalSim>bestSim) bestSim=totalSim;
     }
-    const similarity=n1>0&&n2>0?corr/Math.sqrt(n1*n2):0;
-    patternResults.push({pattern:pat,similarity,template});
+
+    patternResults.push({pattern:pat,similarity:bestSim});
   }
 
   patternResults.sort((a,b)=>b.similarity-a.similarity);
   const bestPattern=patternResults[0];
 
-  // ═══ STEP 5: Assign chords per bar using best pattern + chroma confirmation ═══
+  // ═══ STEP 5: Assign chords per bar ═══
+  // Use pattern as guide, chroma as confirmation
+  // NO first/last bar bias - only the flow matters
   document.getElementById('snapI').textContent='コード確定中...';
 
   const SIMPLE={'':[0,4,7],'m':[0,3,7]};
   const bestPath=[];
 
+  // Find best offset: where in the pattern does bar 0 land?
+  // Try each offset and pick the one where chroma best matches
+  let bestOffset=0,bestOffsetScore=-1;
+  for(let offset=0;offset<bestPattern.pattern.degs.length;offset++){
+    let score=0;
+    for(let bar=0;bar<Math.min(numBars,bestPattern.pattern.degs.length);bar++){
+      const ch=barChromas[bar];if(!ch)continue;
+      const degIdx=(bar+offset)%bestPattern.pattern.degs.length;
+      const expectedDeg=bestPattern.pattern.degs[degIdx];
+      const dc=diaChords.find(d=>d.deg===expectedDeg);
+      if(!dc)continue;
+      const rootPC=(audioKey+DIA.find(d=>d.d===dc.deg).o)%12;
+      const pcs=dc.name.endsWith('m')?[0,3,7].map(p=>(rootPC+p)%12):[0,4,7].map(p=>(rootPC+p)%12);
+      for(const p of pcs) score+=ch[p];
+    }
+    if(score>bestOffsetScore){bestOffsetScore=score;bestOffset=offset}
+  }
+
   for(let bar=0;bar<numBars;bar++){
-    const patDegIdx=bar%bestPattern.pattern.degs.length;
+    const patDegIdx=(bar+bestOffset)%bestPattern.pattern.degs.length;
     const expectedDeg=bestPattern.pattern.degs[patDegIdx];
     const expectedChord=diaChords.find(d=>d.deg===expectedDeg);
-
     const ch=barChromas[bar];
 
     if(!ch||!expectedChord){
-      // Use pattern's chord directly
-      if(expectedChord){
-        bestPath.push({name:expectedChord.name,time:bar*barSec,notes:[],deg:expectedChord.deg});
-      }
+      if(expectedChord) bestPath.push({name:expectedChord.name,time:bar*barSec,notes:[],deg:expectedChord.deg});
       continue;
     }
 
-    // Score all diatonic chords against this bar's chroma
+    // Score all diatonic chords: chroma energy + pattern match bonus + transition
     let bestLocal=null,bestScore=-1;
     for(const dc of diaChords){
       const rootPC=(audioKey+DIA.find(d=>d.d===dc.deg).o)%12;
@@ -618,16 +690,18 @@ async function analyzeRecording(){
       for(const p of pcs) energy+=ch[p];
       energy/=3;
 
-      // Bonus if this matches pattern's expected chord
-      if(dc.deg===expectedDeg) energy+=0.15;
+      // Pattern match bonus (moderate, not overwhelming)
+      if(dc.deg===expectedDeg) energy+=0.1;
 
-      // Transition bonus from previous bar
+      // Transition from previous (flow matters most)
       if(bestPath.length>0){
         const prevDeg=bestPath[bestPath.length-1].deg;
         const prevFn=getFunc(prevDeg);
         const thisFn=dc.fn;
-        if((prevFn==='T'&&thisFn==='SD')||(prevFn==='SD'&&thisFn==='D')||(prevFn==='D'&&thisFn==='T')) energy+=0.06;
-        if(prevDeg==='V'&&dc.deg==='I') energy+=0.08;
+        if((prevFn==='T'&&thisFn==='SD')||(prevFn==='SD'&&thisFn==='D')||(prevFn==='D'&&thisFn==='T')) energy+=0.04;
+        if(prevDeg==='V'&&dc.deg==='I') energy+=0.06;
+        if(prevDeg==='vi'&&dc.deg==='IV') energy+=0.04;
+        if(prevDeg==='IV'&&dc.deg==='V') energy+=0.04;
       }
 
       if(energy>bestScore){bestScore=energy;bestLocal={name:dc.name,deg:dc.deg,notes:pcs.map(p=>NM[p])}}
