@@ -56,8 +56,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .cfi{flex-shrink:0;text-align:center;cursor:pointer;position:relative}
 .cfi .cn{padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;background:rgba(105,219,124,.08);color:var(--grn);border:1px solid rgba(105,219,124,.3)}
 .cfi .cd{font-size:6px;color:var(--dm);margin-top:1px}
-.cfi .xbtn{position:absolute;top:-4px;right:-4px;width:12px;height:12px;border-radius:50%;background:var(--acc);color:#000;font-size:7px;line-height:12px;text-align:center;display:none;cursor:pointer}
-.cfi:active .xbtn{display:block}
+.cfi .xbtn{position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;background:var(--acc);color:#000;font-size:8px;line-height:14px;text-align:center;cursor:pointer;z-index:2}
 .cfa{color:var(--dm2);font-size:7px;flex-shrink:0}
 .cf-play{flex-shrink:0;padding:2px 6px;border-radius:3px;font-size:7px;color:var(--grn);border:1px solid rgba(105,219,124,.3);cursor:pointer;margin-left:auto;white-space:nowrap}
 .cf-play:active{background:rgba(105,219,124,.15)}
@@ -396,7 +395,7 @@ function renderConfirmed(){
   confirmed.forEach((c,i)=>{
     if(i>0)h+='<span class="cfa">→</span>';
     const nm=c.name.replace(/'/g,"\\'");
-    h+=`<span class="cfi" onclick="playChord('${nm}')"><span class="cn">${c.name}</span><span class="cd">${c.degree||''}</span><span class="xbtn" onclick="event.stopPropagation();removeConfirmed(${i})" style="display:block">×</span></span>`;
+    h+=`<span class="cfi" onclick="playChord('${nm}')"><span class="cn">${c.name}</span><span class="cd">${c.degree||''}</span><span class="xbtn" onclick="event.stopPropagation();removeConfirmed(${i})">×</span></span>`;
   });
   el.innerHTML=h;
   // Scroll confirmed bar
@@ -448,9 +447,137 @@ function stP(r){pBuf.push(r);if(pBuf.length>3)pBuf.shift();if(pBuf.length<2)retu
 function acorr(buf,sr){const N=buf.length;let rms=0;for(let i=0;i<N;i++)rms+=buf[i]*buf[i];rms=Math.sqrt(rms/N);document.getElementById('lB').style.width=Math.min(100,rms*500)+'%';const sp=getSP();if(rms<sp.rms)return-1;const hN=Math.floor(N/2),c=new Float32Array(hN);for(let tau=0;tau<hN;tau++){let s=0;for(let i=0;i<N-tau;i++)s+=buf[i]*buf[i+tau];c[tau]=s}const c0=c[0];if(!c0)return-1;for(let i=0;i<hN;i++)c[i]/=c0;let fd=1;while(fd<hN-1&&c[fd]>.1)fd++;let bT=-1,bV=-1;for(let i=fd;i<hN-1;i++)if(c[i]>=c[i-1]&&c[i]>=c[i+1]&&c[i]>bV){bV=c[i];bT=i}if(bT<1||bV<sp.corr)return-1;if(bT>0&&bT<hN-1){const a=c[bT-1],b=c[bT],cv=c[bT+1],dn=2*(a-2*b+cv);if(Math.abs(dn)>.0001){const d=(a-cv)/dn;if(Math.abs(d)<1)bT+=d}}const f=sr/bT;return(f<65||f>1100)?-1:f}
 
 // ═══ AUDIO ═══
-async function startA(){actx=new(window.AudioContext||window.webkitAudioContext)();strm=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:inMode!=='guitar'}});const s=actx.createMediaStreamSource(strm);ana=actx.createAnalyser();ana.fftSize=4096;s.connect(ana);t0=performance.now();rec=true;pBuf=[];chordBuf=[];gtrPitchBuf=[];stableBuf=[];humPitchHistory=[];humKey=null;lastChordTime=0;document.getElementById('mic').classList.add('on');document.getElementById('ov').classList.add('hide');loop()}
-function stopA(){rec=false;document.getElementById('mic').classList.remove('on');document.getElementById('lB').style.width='0%';if(strm){strm.getTracks().forEach(t=>t.stop());strm=null}if(actx){actx.close();actx=null}}
+let mediaRec=null, audioChunks=[];
+
+async function startA(){
+  actx=new(window.AudioContext||window.webkitAudioContext)();
+  strm=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:inMode!=='guitar'}});
+  const s=actx.createMediaStreamSource(strm);
+  ana=actx.createAnalyser();ana.fftSize=4096;s.connect(ana);
+  t0=performance.now();rec=true;pBuf=[];chordBuf=[];gtrPitchBuf=[];stableBuf=[];humPitchHistory=[];humKey=null;lastChordTime=0;
+  document.getElementById('mic').classList.add('on');document.getElementById('ov').classList.add('hide');
+
+  // Audio mode: start MediaRecorder for batch analysis
+  if(inMode==='audio'){
+    audioChunks=[];
+    mediaRec=new MediaRecorder(strm);
+    mediaRec.ondataavailable=e=>{if(e.data.size>0)audioChunks.push(e.data)};
+    mediaRec.start();
+  }
+
+  loop();
+}
+
+function stopA(){
+  rec=false;document.getElementById('mic').classList.remove('on');document.getElementById('lB').style.width='0%';
+  document.getElementById('snapI').textContent='';
+
+  // Audio mode: stop recording and analyze
+  if(inMode==='audio'&&mediaRec&&mediaRec.state==='recording'){
+    mediaRec.onstop=()=>analyzeRecording();
+    mediaRec.stop();
+  }
+
+  if(strm){strm.getTracks().forEach(t=>t.stop());strm=null}
+  if(actx){actx.close();actx=null}
+}
 function toggle(){rec?stopA():startA().catch(console.error)}
+
+// ═══ BATCH AUDIO ANALYSIS ═══
+async function analyzeRecording(){
+  if(!audioChunks.length)return;
+  document.getElementById('pN').textContent='...';
+  document.getElementById('pH').textContent='分析中';
+
+  const blob=new Blob(audioChunks,{type:'audio/webm'});
+  const arrayBuf=await blob.arrayBuffer();
+  const offCtx=new OfflineAudioContext(1,1,44100);
+
+  let audioBuf;
+  try{audioBuf=await offCtx.decodeAudioData(arrayBuf)}
+  catch(e){console.error('Decode error',e);document.getElementById('pH').textContent='エラー';return}
+
+  const sr=audioBuf.sampleRate;
+  const data=audioBuf.getChannelData(0);
+  const totalSec=data.length/sr;
+
+  // Analyze in chunks (each chunk = ~0.5s for chord-level resolution)
+  const chunkSec=0.5;
+  const chunkSamples=Math.floor(sr*chunkSec);
+  const numChunks=Math.floor(data.length/chunkSamples);
+
+  prog=[];
+  const detectedChords=[];
+
+  for(let ci=0;ci<numChunks;ci++){
+    const start=ci*chunkSamples;
+    const chunk=data.slice(start,start+chunkSamples);
+
+    // Compute chroma from FFT
+    const fftSize=4096;
+    const chroma=new Float32Array(12);
+
+    // Simple DFT-based chroma extraction
+    for(let note=36;note<=84;note++){ // C2 to C6
+      const freq=440*Math.pow(2,(note-69)/12);
+      const pc=((note%12)+12)%12;
+      // Goertzel-like energy at this frequency
+      const k=Math.round(freq*fftSize/sr);
+      let re=0,im=0;
+      const w=2*Math.PI*k/fftSize;
+      for(let n=0;n<Math.min(chunk.length,fftSize);n++){
+        re+=chunk[n]*Math.cos(w*n);
+        im-=chunk[n]*Math.sin(w*n);
+      }
+      chroma[pc]+=Math.sqrt(re*re+im*im);
+    }
+
+    // Normalize
+    const maxC=Math.max(...chroma);
+    if(maxC<0.01)continue;
+    for(let i=0;i<12;i++)chroma[i]/=maxC;
+
+    // Match chord
+    const activePCs=[];
+    for(let i=0;i<12;i++){if(chroma[i]>0.25)activePCs.push(i)}
+    if(activePCs.length<1)continue;
+
+    let best=null,bs=0;
+    for(let r=0;r<12;r++){
+      for(const[sf,pt]of Object.entries(CPAT)){
+        const cpc=pt.map(p=>(r+p)%12);
+        let energy=0;
+        for(const p of cpc)energy+=chroma[p];
+        energy/=cpc.length;
+        let penalty=0;
+        for(let i=0;i<12;i++){if(!cpc.includes(i)&&chroma[i]>0.3)penalty+=chroma[i]*0.05}
+        const score=energy-penalty;
+        if(score>bs){bs=score;best={name:NM[r]+sf,notes:cpc.map(p=>NM[p]),score}}
+      }
+    }
+
+    if(best&&bs>0.15){
+      const time=ci*chunkSec;
+      detectedChords.push({name:best.name,time,notes:best.notes});
+    }
+  }
+
+  // Deduplicate consecutive same chords
+  for(const dc of detectedChords){
+    const last=prog.length?prog[prog.length-1]:null;
+    if(!last||last.name!==dc.name){
+      const v=VOI[dc.name]?VOI[dc.name][0]:null;
+      prog.push({name:dc.name,time:dc.time,voicing:v,notes:dc.notes});
+    }
+  }
+
+  // Update theory and display
+  updTh();updStrip();updPr();
+  if(mode==='learn')renderLearn();
+
+  document.getElementById('pN').textContent='完了';
+  document.getElementById('pH').textContent=totalSec.toFixed(0)+'s / '+prog.length+'コード';
+}
 
 // ═══ MAIN LOOP ═══
 function loop(){
@@ -587,20 +714,18 @@ function loop(){
     }
 
   } else {
-    // ══ AUDIO MODE: theory-boosted ══
-    if(rf>0){
-      const rm0=69+12*Math.log2(rf/440),midi=stP(rm0),rm=Math.round(midi),nn=NM[((rm%12)+12)%12];
-      document.getElementById('pN').textContent=nn;document.getElementById('pN').classList.add('on');
-      document.getElementById('pH').textContent=rf.toFixed(0);
-      document.getElementById('snapI').textContent='';
-      const gap=rm===lastMidi?400:150;
-      if(rm!==lastMidi||(now-lastT)>gap){const el=(now-t0)/1000,prev=notes.length?notes[notes.length-1]:null;const pos=pickPos(midi,prev?prev.str:-1,prev?prev.fret:-1);if(pos){notes.push({time:el,midi:rm,str:pos.str,fret:pos.fret,noteName:nn,color:SC[pos.str]});if(notes.length>2)reOpt(notes,Math.max(0,notes.length-5));lastMidi=rm;lastT=now}}
-      chordBuf.push({midi:rm,time:now});chordBuf=chordBuf.filter(n=>now-n.time<cWin);
-      if(now-lastChordTime>MCI){const uq=[...new Set(chordBuf.map(n=>n.midi))];const ch=detectChordAudio(uq,currentPredictions);if(ch){const last=prog.length?prog[prog.length-1]:null;if(!last||last.name!==ch.name){const el=(now-t0)/1000,v=VOI[ch.name]?VOI[ch.name][0]:null;prog.push({name:ch.name,time:el,voicing:v,notes:ch.notes});lastChordTime=now;chordBuf=[];updTh();updStrip();updPr();if(mode==='learn')renderLearn()}}}
-    } else {
-      document.getElementById('pN').classList.remove('on');
-      if(chordBuf.length&&now-chordBuf[chordBuf.length-1].time>300)chordBuf=[];
-    }
+    // ══ AUDIO MODE: recording indicator only (analysis happens on stop) ══
+    const buf=new Float32Array(ana.fftSize);
+    ana.getFloatTimeDomainData(buf);
+    let rms=0;for(let i=0;i<buf.length;i++)rms+=buf[i]*buf[i];
+    rms=Math.sqrt(rms/buf.length);
+    document.getElementById('lB').style.width=Math.min(100,rms*500)+'%';
+    // Show recording time
+    const elapsed=((performance.now()-t0)/1000).toFixed(0);
+    document.getElementById('pN').textContent='REC';
+    document.getElementById('pN').classList.add('on');
+    document.getElementById('pH').textContent=elapsed+'s';
+    document.getElementById('snapI').textContent='録音中...STOPで分析';
   }
   requestAnimationFrame(loop);
 }
