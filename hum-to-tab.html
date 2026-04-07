@@ -30,6 +30,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .pitch .note.on{color:var(--acc)}.pitch .hz{font-size:11px}.pitch .hzl{font-size:7px;color:var(--dm)}
 .lvl{width:40px;height:3px;background:var(--bd);border-radius:2px;overflow:hidden}
 .lvl-bar{height:100%;background:var(--acc);border-radius:2px;width:0%}
+.snap-info{font-size:7px;color:var(--gold);min-width:40px;text-align:center}
 .tbar{display:flex;align-items:center;gap:5px;padding:4px 12px;border-bottom:1px solid var(--bd);background:var(--sf);min-height:22px}
 .key-b{font-size:9px;font-weight:700;color:var(--acc);background:rgba(255,107,107,.08);padding:1px 6px;border-radius:3px;border:1px solid rgba(255,107,107,.25)}
 .pat-name{font-size:8px;color:var(--gold);margin-left:auto;font-weight:700}
@@ -59,9 +60,8 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .main canvas{width:100%;height:100%;display:block}
 .lp{position:absolute;inset:0;background:var(--bg);overflow-y:auto;display:none;padding:12px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .lp::-webkit-scrollbar{display:none}.lp.show{display:block}
-.ls{margin-bottom:16px}.ls h3{font-size:11px;color:var(--acc);margin-bottom:6px;letter-spacing:.5px}
+.ls{margin-bottom:16px}.ls h3{font-size:11px;color:var(--acc);margin-bottom:6px}
 .ls p{font-size:9px;color:var(--dm);line-height:1.7;margin-bottom:4px}
-.ls .hi{color:var(--acc);font-weight:700}.ls .hb{color:var(--blue)}.ls .hg{color:var(--gold)}
 .lc{background:var(--sf);border:1px solid var(--bd);border-radius:6px;padding:10px;margin-bottom:8px;cursor:pointer}
 .lc.open{border-color:rgba(255,107,107,.3)}
 .lc h4{font-size:10px;color:var(--tx);display:flex;align-items:center;gap:6px}
@@ -103,12 +103,12 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
     <div class="sg"><label>感度</label><input type="range" min="1" max="10" value="7" step="1" oninput="sens=+this.value;this.nextElementSibling.textContent=this.value"><span class="sv">7</span></div>
     <div class="sg"><label>窓</label><input type="range" min="500" max="3000" value="1500" step="100" oninput="cWin=+this.value;this.nextElementSibling.textContent=(cWin/1000).toFixed(1)+'s'"><span class="sv">1.5s</span></div>
   </div>
-  <div class="pitch"><div><div class="note" id="pN">--</div><div><span class="hz" id="pH">---</span><span class="hzl"> Hz</span></div></div><div><div class="lvl"><div class="lvl-bar" id="lB"></div></div></div></div>
+  <div class="pitch"><div><div class="note" id="pN">--</div><div><span class="hz" id="pH">---</span><span class="hzl"> Hz</span></div></div><div class="snap-info" id="snapI"></div><div><div class="lvl"><div class="lvl-bar" id="lB"></div></div></div></div>
   <div class="tbar"><span class="key-b" id="kB">Key: --</span><span class="pat-name" id="paN"></span></div>
   <div class="cbar" id="cb"><span class="lbl">進行</span></div>
   <div class="pred" id="pr"><span class="plbl">次→</span></div>
   <div class="dgr" id="dg"><div class="inner"><div class="dn" id="dN">--</div><canvas id="dC" width="120" height="90"></canvas><div class="di" id="dI"></div></div></div>
-  <div class="main"><canvas id="tc"></canvas><div class="lp" id="lP"></div><div class="ov" id="ov"><div><h2>HUM → TAB</h2><p>マイクボタンで入力開始<br><br>鼻歌 / 音源 / ギター実音<br>3つの入力モードで解析<br><br>コードをタップすると音が鳴ります</p></div></div></div>
+  <div class="main"><canvas id="tc"></canvas><div class="lp" id="lP"></div><div class="ov" id="ov"><div><h2>HUM → TAB</h2><p>鼻歌 → それっぽいコード進行<br>ギター → 正確なコード解析<br><br>マイクボタンで開始</p></div></div></div>
   <div class="ctrl"><button class="btn" onclick="clearAll()">CLEAR</button><button class="mic" id="mic" onclick="toggle()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button><button class="btn" onclick="doExport()">EXPORT</button></div>
 </div>
 <script>
@@ -117,20 +117,140 @@ const TUN=[64,59,55,50,45,40],SC=['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#74c0
 const DIA=[{d:'I',o:0,t:'',fn:'T'},{d:'ii',o:2,t:'m',fn:'SD'},{d:'iii',o:4,t:'m',fn:'T'},{d:'IV',o:5,t:'',fn:'SD'},{d:'V',o:7,t:'',fn:'D'},{d:'vi',o:9,t:'m',fn:'T'},{d:'vii°',o:11,t:'dim',fn:'D'}];
 const TRANS={'I':[{to:'IV',w:5},{to:'V',w:5},{to:'vi',w:4},{to:'ii',w:3},{to:'iii',w:2}],'ii':[{to:'V',w:5},{to:'IV',w:3}],'iii':[{to:'vi',w:5},{to:'IV',w:4},{to:'ii',w:2}],'IV':[{to:'V',w:5},{to:'I',w:4},{to:'iii',w:3},{to:'ii',w:2},{to:'vi',w:2}],'V':[{to:'I',w:5},{to:'vi',w:4},{to:'IV',w:2}],'vi':[{to:'IV',w:5},{to:'ii',w:4},{to:'V',w:3},{to:'I',w:2}],'vii°':[{to:'I',w:5},{to:'iii',w:3}]};
 const PATS=[{name:'カノン進行',degs:['I','V','vi','iii','IV','I','IV','V'],desc:'J-POP最多用。',ex:'クリスマスイブ, Lemon'},{name:'王道進行',degs:['IV','V','iii','vi'],desc:'サビで多用。',ex:'残酷な天使のテーゼ'},{name:'小室進行',degs:['vi','IV','V','I'],desc:'マイナーからメジャーへ。',ex:'Get Wild'},{name:'丸サ進行',degs:['IV','iii','vi','I'],desc:'おしゃれ浮遊感。',ex:'夜に駆ける'},{name:'レットイットビー',degs:['I','V','vi','IV'],desc:'世界で最も有名。',ex:'Let It Be'},{name:'循環コード',degs:['I','vi','IV','V'],desc:'50sポップス基本。',ex:'Stand By Me'}];
-function detectKey(ns){if(ns.length<2)return null;let bk=-1,bs=0;for(let k=0;k<12;k++){let sc=0;const ds=DIA.map(d=>NM[(k+d.o)%12]+d.t);for(const cn of ns){const b=cn.replace('7','');if(ds.some(dc=>dc===b||dc===cn))sc++}if(sc>bs){bs=sc;bk=k}}return bs>=2?bk:null}
-function getDeg(n,k){if(k===null)return'';const b=n.replace('7','');for(const d of DIA)if(NM[(k+d.o)%12]+d.t===b)return d.d;if(n===NM[(k+7)%12]+'7')return'V7';return'?'}
+
+// ═══ SCALE & KEY ═══
+const MAJOR_SCALE=[0,2,4,5,7,9,11]; // semitone offsets
+function scaleNotes(k){return MAJOR_SCALE.map(o=>NM[(k+o)%12])}
+function detectKey(ns){if(ns.length<2)return null;let bk=-1,bs=0;for(let k=0;k<12;k++){let sc=0;const dias=DIA.map(d=>NM[(k+d.o)%12]+d.t);for(const cn of ns){const b=cn.replace('7','');if(dias.some(dc=>dc===b||dc===cn))sc++}if(sc>bs){bs=sc;bk=k}}return bs>=2?bk:null}
+function getDeg(n,k){if(k===null)return'';const b=n.replace('7','');for(const d of DIA)if(NM[(k+d.o)%12]+d.t===b)return d.d;return'?'}
 function getFunc(deg){const d=DIA.find(x=>x.d===deg);return d?d.fn:'?'}
 function predictNext(deg,k){if(k===null||!deg)return[];const bd=deg.replace('7','');const tr=TRANS[bd];if(!tr)return[];return tr.sort((a,b)=>b.w-a.w).slice(0,5).map(t=>{const d=DIA.find(x=>x.d===t.to);return d?{name:NM[(k+d.o)%12]+d.t,deg:t.to,weight:t.w}:null}).filter(Boolean)}
 function matchPat(ds){if(ds.length<3)return null;const s=ds.join(',');let bm=null,bl=0;for(const p of PATS){for(let l=Math.min(ds.length,p.degs.length);l>=3;l--){const ps=p.degs.slice(0,l).join(',');if(s.includes(ps)&&l>bl){bl=l;bm=p}}if(ds.length>=p.degs.length){const t=ds.slice(-p.degs.length).join(',');if(t===p.degs.join(',')&&p.degs.length>bl){bl=p.degs.length;bm=p}}}return bm}
 function kn(deg){if(currentKey===null)return'';const d=DIA.find(x=>x.d===deg);return d?NM[(currentKey+d.o)%12]+d.t:''}
-function scaleNotes(k){return[0,2,4,5,7,9,11].map(o=>NM[(k+o)%12])}
 
-const VOI={'C':[[-1,3,2,0,1,0]],'D':[[-1,-1,0,2,3,2]],'E':[[0,2,2,1,0,0]],'F':[[1,3,3,2,1,1]],'G':[[3,2,0,0,0,3]],'A':[[-1,0,2,2,2,0]],'B':[[-1,2,4,4,4,2]],'Cm':[[3,3,5,5,4,3]],'Dm':[[-1,-1,0,2,3,1]],'Em':[[0,2,2,0,0,0]],'Fm':[[1,3,3,1,1,1]],'Gm':[[3,5,5,3,3,3]],'Am':[[-1,0,2,2,1,0]],'Bm':[[-1,2,4,4,3,2]],'C7':[[-1,3,2,3,1,0]],'D7':[[-1,-1,0,2,1,2]],'E7':[[0,2,0,1,0,0]],'F7':[[1,3,1,2,1,1]],'G7':[[3,2,0,0,0,1]],'A7':[[-1,0,2,0,2,0]],'B7':[[-1,2,1,2,0,2]],'C#':[[-1,4,3,1,2,1]],'D#':[[-1,-1,1,3,4,3]],'F#':[[2,4,4,3,2,2]],'G#':[[4,6,6,5,4,4]],'A#':[[-1,1,3,3,3,1]],'Db':[[-1,4,3,1,2,1]],'Eb':[[-1,-1,1,3,4,3]],'Gb':[[2,4,4,3,2,2]],'Ab':[[4,6,6,5,4,4]],'Bb':[[-1,1,3,3,3,1]],'C#m':[[-1,4,6,6,5,4]],'D#m':[[-1,-1,1,3,4,2]],'F#m':[[2,4,4,2,2,2]],'G#m':[[4,6,6,4,4,4]],'A#m':[[-1,1,3,3,2,1]],'Dbm':[[-1,4,6,6,5,4]],'Ebm':[[-1,-1,1,3,4,2]],'Gbm':[[2,4,4,2,2,2]],'Abm':[[4,6,6,4,4,4]],'Bbm':[[-1,1,3,3,2,1]]};
+// ═══ KARAOKE-STYLE HUM PROCESSING ═══
+
+// 1. Snap MIDI to nearest scale tone (±50 cents tolerance)
+function snapToScale(midi, key){
+  if(key===null) return Math.round(midi);
+  const rounded=Math.round(midi);
+  const pc=((rounded%12)+12)%12;
+  const scalePC=MAJOR_SCALE.map(o=>(key+o)%12);
+  if(scalePC.includes(pc)) return rounded; // already on scale
+  // Find nearest scale tone
+  let bestDist=99, bestMidi=rounded;
+  for(const spc of scalePC){
+    for(let oct=-1;oct<=1;oct++){
+      const candidate=rounded+((spc-pc+12)%12)+oct*12;
+      const dist=Math.abs(candidate-midi);
+      if(dist<bestDist){bestDist=dist;bestMidi=candidate}
+    }
+  }
+  return bestDist<=1.5?bestMidi:rounded; // snap if within 1.5 semitones
+}
+
+// 2. Time-averaged pitch buffer (karaoke style: ignore transients)
+const STABLE_BUF_SIZE=8;
+const STABLE_MIN_AGREEMENT=5; // at least 5 of 8 must agree
+let stableBuf=[];
+
+function getStablePitch(rawMidi){
+  const snapped=snapToScale(rawMidi, humKey);
+  const rounded=Math.round(snapped);
+  stableBuf.push(rounded);
+  if(stableBuf.length>STABLE_BUF_SIZE) stableBuf.shift();
+  if(stableBuf.length<3) return rounded;
+
+  // Count most common pitch in buffer
+  const counts={};
+  for(const m of stableBuf) counts[m]=(counts[m]||0)+1;
+  let bestM=rounded, bestC=0;
+  for(const[m,c]of Object.entries(counts)){if(c>bestC){bestC=c;bestM=+m}}
+
+  // Only return if stable enough (karaoke: ignore wobble)
+  return bestC>=Math.min(STABLE_MIN_AGREEMENT, stableBuf.length*0.6)?bestM:null;
+}
+
+// 3. Diatonic-only chord detection for hum mode
+// Only outputs: I, ii, iii, IV, V, vi (no dim, aug, 7th, tension)
+function detectChordHum(midis, key, preds){
+  if(midis.length<2||key===null) return detectChordFallback(midis,preds);
+  const pc=[...new Set(midis.map(m=>((m%12)+12)%12))];
+  if(pc.length<2) return detectChordFallback(midis,preds);
+
+  // Only match against 6 diatonic chords (no vii°)
+  const diaChords=DIA.filter(d=>d.d!=='vii°').map(d=>({
+    name:NM[(key+d.o)%12]+d.t,
+    deg:d.d,
+    root:(key+d.o)%12,
+    pcs:d.t==='m'?[0,3,7].map(p=>(key+d.o+p)%12):[0,4,7].map(p=>(key+d.o+p)%12),
+    fn:d.fn
+  }));
+
+  let best=null,bs=0;
+  for(const dc of diaChords){
+    const hits=pc.filter(p=>dc.pcs.includes(p)).length;
+    let score=hits/Math.max(pc.length,dc.pcs.length);
+    if(score<0.3) continue;
+
+    // Theory boost from predictions
+    const pred=preds.find(p=>p.name===dc.name);
+    if(pred) score+=pred.weight*0.07;
+
+    // Progression smoothness: prefer functionally logical next chord
+    if(prog.length>0){
+      const lastFn=getFunc(prog[prog.length-1].degree);
+      const thisFn=dc.fn;
+      // T→SD, SD→D, D→T are natural
+      if((lastFn==='T'&&thisFn==='SD')||(lastFn==='SD'&&thisFn==='D')||(lastFn==='D'&&thisFn==='T')) score+=0.05;
+      // Same function is also ok
+      if(lastFn===thisFn) score+=0.02;
+    }
+
+    if(score>bs){bs=score;best={name:dc.name,deg:dc.deg,notes:dc.pcs.map(p=>NM[p]),score}}
+  }
+  return bs>0.4?best:null;
+}
+
+// Fallback before key is established
+function detectChordFallback(midis,preds){
+  if(midis.length<2)return null;
+  const pc=[...new Set(midis.map(m=>((m%12)+12)%12))];
+  if(pc.length<2)return null;
+  // Only major and minor triads
+  const SIMPLE={'':[0,4,7],'m':[0,3,7]};
+  let best=null,bs=0;
+  for(let r=0;r<12;r++){
+    for(const[sf,pt]of Object.entries(SIMPLE)){
+      const cpc=pt.map(p=>(r+p)%12);
+      const h=pc.filter(p=>cpc.includes(p)).length;
+      const s=h/Math.max(pc.length,cpc.length);
+      if(h>=2&&s>bs){bs=s;best={name:NM[r]+sf,notes:cpc.map(p=>NM[p]),score:s}}
+    }
+  }
+  return bs>.5?best:null;
+}
+
+// Hum key: estimated from accumulated hum pitches
+let humKey=null;
+let humPitchHistory=[]; // all snapped pitches for key estimation
+
+function updateHumKey(){
+  if(humPitchHistory.length<4){humKey=null;return}
+  // Estimate key from pitch histogram
+  const pcCounts=new Array(12).fill(0);
+  for(const m of humPitchHistory) pcCounts[((m%12)+12)%12]++;
+  let bestK=-1,bestS=0;
+  for(let k=0;k<12;k++){
+    let s=0;
+    for(const o of MAJOR_SCALE) s+=pcCounts[(k+o)%12];
+    if(s>bestS){bestS=s;bestK=k}
+  }
+  humKey=bestK;
+}
+
+// ═══ GUITAR MODE: accurate detection ═══
 const CPAT={'':[0,4,7],'m':[0,3,7],'7':[0,4,7,10]};
-
-function detectChord(midis,preds){if(midis.length<2)return null;const pc=[...new Set(midis.map(m=>((Math.round(m)%12)+12)%12))];if(pc.length<2)return null;let cands=[];for(let r=0;r<12;r++){for(const[sf,pt]of Object.entries(CPAT)){const cpc=pt.map(p=>(r+p)%12);const h=pc.filter(p=>cpc.includes(p)).length;const rs=h/Math.max(pc.length,cpc.length);if(h<2||rs<.3)continue;const nm=NM[r]+sf;let boost=0;const pr=preds.find(p=>p.name===nm);if(pr)boost=pr.weight*.07;else if(currentKey!==null&&getDeg(nm,currentKey)!=='?')boost=.05;cands.push({name:nm,notes:cpc.map(p=>NM[p]),score:rs+boost})}}cands.sort((a,b)=>b.score-a.score);return cands.length&&cands[0].score>.45?cands[0]:null}
-
-// Guitar mode chord detection: trust the audio, minimal theory boost
 function detectChordGuitar(midis){
   if(midis.length<2)return null;
   const pc=[...new Set(midis.map(m=>((Math.round(m)%12)+12)%12))];
@@ -142,14 +262,33 @@ function detectChordGuitar(midis){
       const h=pc.filter(p=>cpc.includes(p)).length;
       const rs=h/Math.max(pc.length,cpc.length);
       if(h<2||rs<.3)continue;
-      const nm=NM[r]+sf;
-      // Tiny theory boost: only to break ties, not override audio
       let boost=0;
-      if(currentKey!==null&&getDeg(nm,currentKey)!=='?')boost=0.02;
-      // Prefer chord whose root matches the lowest detected note
-      const lowestMidi=Math.min(...midis);
-      const lowestPC=((lowestMidi%12)+12)%12;
-      if(r===lowestPC) boost+=0.08; // root in bass = strong signal
+      if(currentKey!==null&&getDeg(NM[r]+sf,currentKey)!=='?')boost=0.02;
+      const lowestPC=((Math.min(...midis)%12)+12)%12;
+      if(r===lowestPC) boost+=0.08;
+      cands.push({name:NM[r]+sf,notes:cpc.map(p=>NM[p]),score:rs+boost});
+    }
+  }
+  cands.sort((a,b)=>b.score-a.score);
+  return cands.length&&cands[0].score>.45?cands[0]:null;
+}
+
+// Audio mode: theory-boosted
+function detectChordAudio(midis,preds){
+  if(midis.length<2)return null;
+  const pc=[...new Set(midis.map(m=>((Math.round(m)%12)+12)%12))];
+  if(pc.length<2)return null;
+  let cands=[];
+  for(let r=0;r<12;r++){
+    for(const[sf,pt]of Object.entries(CPAT)){
+      const cpc=pt.map(p=>(r+p)%12);
+      const h=pc.filter(p=>cpc.includes(p)).length;
+      const rs=h/Math.max(pc.length,cpc.length);
+      if(h<2||rs<.3)continue;
+      const nm=NM[r]+sf;let boost=0;
+      const pr=preds.find(p=>p.name===nm);
+      if(pr)boost=pr.weight*.07;
+      else if(currentKey!==null&&getDeg(nm,currentKey)!=='?')boost=.05;
       cands.push({name:nm,notes:cpc.map(p=>NM[p]),score:rs+boost});
     }
   }
@@ -157,148 +296,27 @@ function detectChordGuitar(midis){
   return cands.length&&cands[0].score>.45?cands[0]:null;
 }
 
-// ═══ CHROMA-BASED CHORD DETECTION (for guitar mode) ═══
-// All thresholds scale with sensitivity slider (1=strict, 10=loose)
-function getGtrSens(){
-  const t=(sens-1)/9; // 0..1
-  return {
-    magFloor:  0.001*(1-t)+0.000005*t,   // bin magnitude cutoff
-    silenceMax:0.005*(1-t)+0.00005*t,     // chroma silence threshold
-    activePC:  0.35*(1-t)+0.1*t,          // pitch class activation
-    minScore:  0.25*(1-t)+0.08*t,         // minimum chord score
-    penaltyTh: 0.5*(1-t)+0.25*t,          // non-chord-tone penalty threshold
-  };
-}
-
-function chromaDetect(analyser, preds){
-  const gs=getGtrSens();
-  const fftSize=analyser.fftSize;
-  const freqData=new Float32Array(analyser.frequencyBinCount);
-  analyser.getFloatFrequencyData(freqData);
-  const sr=actx?actx.sampleRate:44100;
-  const binHz=sr/fftSize;
-
-  // Build chroma vector (12 pitch classes)
-  const chroma=new Float32Array(12);
-  const minBin=Math.floor(75/binHz);
-  const maxBin=Math.min(Math.floor(1300/binHz),freqData.length-1);
-
-  for(let i=minBin;i<=maxBin;i++){
-    const freq=i*binHz;
-    if(freq<75)continue;
-    const mag=Math.pow(10,freqData[i]/20); // dB to linear
-    if(mag<gs.magFloor)continue;
-    const midi=69+12*Math.log2(freq/440);
-    const pc=((Math.round(midi)%12)+12)%12;
-    chroma[pc]+=mag;
-  }
-
-  // Normalize
-  const maxC=Math.max(...chroma);
-  if(maxC<gs.silenceMax)return null;
-  for(let i=0;i<12;i++)chroma[i]/=maxC;
-
-  // Find active pitch classes
-  const activePCs=[];
-  for(let i=0;i<12;i++){
-    if(chroma[i]>gs.activePC)activePCs.push(i);
-  }
-  if(activePCs.length<2)return null;
-
-  // Match against chord patterns with theory boost
-  let best=null,bs=0;
-  for(let r=0;r<12;r++){
-    for(const[sf,pt]of Object.entries(CPAT)){
-      const cpc=pt.map(p=>(r+p)%12);
-      let energy=0;
-      for(const p of cpc) energy+=chroma[p];
-      energy/=cpc.length;
-
-      let penalty=0;
-      for(let i=0;i<12;i++){
-        if(!cpc.includes(i)&&chroma[i]>gs.penaltyTh) penalty+=chroma[i]*0.1;
-      }
-      let score=energy-penalty;
-
-      // Theory boost
-      const nm=NM[r]+sf;
-      const pr=preds.find(p=>p.name===nm);
-      if(pr) score+=pr.weight*0.05;
-      else if(currentKey!==null&&getDeg(nm,currentKey)!=='?') score+=0.03;
-
-      if(score>bs){bs=score;best={name:nm,notes:cpc.map(p=>NM[p]),score}}
-    }
-  }
-  return bs>gs.minScore?best:null;
-}
+// ═══ VOICINGS ═══
+const VOI={'C':[[-1,3,2,0,1,0]],'D':[[-1,-1,0,2,3,2]],'E':[[0,2,2,1,0,0]],'F':[[1,3,3,2,1,1]],'G':[[3,2,0,0,0,3]],'A':[[-1,0,2,2,2,0]],'B':[[-1,2,4,4,4,2]],'Cm':[[3,3,5,5,4,3]],'Dm':[[-1,-1,0,2,3,1]],'Em':[[0,2,2,0,0,0]],'Fm':[[1,3,3,1,1,1]],'Gm':[[3,5,5,3,3,3]],'Am':[[-1,0,2,2,1,0]],'Bm':[[-1,2,4,4,3,2]],'C7':[[-1,3,2,3,1,0]],'D7':[[-1,-1,0,2,1,2]],'E7':[[0,2,0,1,0,0]],'F7':[[1,3,1,2,1,1]],'G7':[[3,2,0,0,0,1]],'A7':[[-1,0,2,0,2,0]],'B7':[[-1,2,1,2,0,2]],'C#':[[-1,4,3,1,2,1]],'D#':[[-1,-1,1,3,4,3]],'F#':[[2,4,4,3,2,2]],'G#':[[4,6,6,5,4,4]],'A#':[[-1,1,3,3,3,1]],'Db':[[-1,4,3,1,2,1]],'Eb':[[-1,-1,1,3,4,3]],'Gb':[[2,4,4,3,2,2]],'Ab':[[4,6,6,5,4,4]],'Bb':[[-1,1,3,3,3,1]],'C#m':[[-1,4,6,6,5,4]],'D#m':[[-1,-1,1,3,4,2]],'F#m':[[2,4,4,2,2,2]],'G#m':[[4,6,6,4,4,4]],'A#m':[[-1,1,3,3,2,1]],'Dbm':[[-1,4,6,6,5,4]],'Ebm':[[-1,-1,1,3,4,2]],'Gbm':[[2,4,4,2,2,2]],'Abm':[[4,6,6,4,4,4]],'Bbm':[[-1,1,3,3,2,1]]};
 
 // ═══ CHORD PLAYBACK ═══
 let playCtx=null;
-function ensurePlayCtx(){
-  if(!playCtx||playCtx.state==='closed') playCtx=new(window.AudioContext||window.webkitAudioContext)();
-  if(playCtx.state==='suspended') playCtx.resume();
-  return playCtx;
-}
-
+function ensurePlayCtx(){if(!playCtx||playCtx.state==='closed')playCtx=new(window.AudioContext||window.webkitAudioContext)();if(playCtx.state==='suspended')playCtx.resume();return playCtx}
 function playChord(name){
-  const ctx=ensurePlayCtx();
-  const v=VOI[name];
-  if(!v)return;
-  const voicing=v[0];
-  const openMidi=[40,45,50,55,59,64]; // E A D G B e
-
-  // Collect frequencies from voicing
-  const freqs=[];
-  for(let i=0;i<6;i++){
-    if(voicing[i]<0)continue;
-    const midi=openMidi[i]+voicing[i];
-    freqs.push(440*Math.pow(2,(midi-69)/12));
-  }
-
-  const now=ctx.currentTime;
-  const master=ctx.createGain();
-  master.gain.setValueAtTime(0.5,now); // loud
-  master.gain.linearRampToValueAtTime(0.4,now+0.1);
-  master.gain.exponentialRampToValueAtTime(0.15,now+1.5);
-  master.gain.exponentialRampToValueAtTime(0.001,now+3.5);
+  const ctx=ensurePlayCtx();const v=VOI[name];if(!v)return;const voicing=v[0];
+  const openMidi=[40,45,50,55,59,64];const freqs=[];
+  for(let i=0;i<6;i++){if(voicing[i]<0)continue;freqs.push(440*Math.pow(2,(openMidi[i]+voicing[i]-69)/12))}
+  const now=ctx.currentTime;const master=ctx.createGain();
+  master.gain.setValueAtTime(0.5,now);master.gain.linearRampToValueAtTime(0.4,now+0.1);
+  master.gain.exponentialRampToValueAtTime(0.15,now+1.5);master.gain.exponentialRampToValueAtTime(0.001,now+3.5);
   master.connect(ctx.destination);
-
-  // Strum: slight delay between strings for realism
-  freqs.forEach((f,idx)=>{
-    const strumDelay=idx*0.02; // 20ms between strings
-
-    // Fundamental
-    const osc=ctx.createOscillator();
-    const g=ctx.createGain();
-    osc.type='triangle';
-    osc.frequency.value=f;
-    g.gain.setValueAtTime(0.25,now+strumDelay);
-    g.gain.exponentialRampToValueAtTime(0.001,now+strumDelay+3);
-    osc.connect(g);g.connect(master);
-    osc.start(now+strumDelay);
-    osc.stop(now+strumDelay+3.5);
-
-    // 2nd harmonic for richness
-    const osc2=ctx.createOscillator();
-    const g2=ctx.createGain();
-    osc2.type='sine';
-    osc2.frequency.value=f*2;
-    g2.gain.setValueAtTime(0.08,now+strumDelay);
-    g2.gain.exponentialRampToValueAtTime(0.001,now+strumDelay+2);
-    osc2.connect(g2);g2.connect(master);
-    osc2.start(now+strumDelay);
-    osc2.stop(now+strumDelay+2.5);
-
-    // 3rd harmonic
-    const osc3=ctx.createOscillator();
-    const g3=ctx.createGain();
-    osc3.type='sine';
-    osc3.frequency.value=f*3;
-    g3.gain.setValueAtTime(0.03,now+strumDelay);
-    g3.gain.exponentialRampToValueAtTime(0.001,now+strumDelay+1.5);
-    osc3.connect(g3);g3.connect(master);
-    osc3.start(now+strumDelay);
-    osc3.stop(now+strumDelay+2);
+  freqs.forEach((f,idx)=>{const sd=idx*0.02;
+    const o=ctx.createOscillator(),g=ctx.createGain();o.type='triangle';o.frequency.value=f;
+    g.gain.setValueAtTime(0.25,now+sd);g.gain.exponentialRampToValueAtTime(0.001,now+sd+3);
+    o.connect(g);g.connect(master);o.start(now+sd);o.stop(now+sd+3.5);
+    const o2=ctx.createOscillator(),g2=ctx.createGain();o2.type='sine';o2.frequency.value=f*2;
+    g2.gain.setValueAtTime(0.08,now+sd);g2.gain.exponentialRampToValueAtTime(0.001,now+sd+2);
+    o2.connect(g2);g2.connect(master);o2.start(now+sd);o2.stop(now+sd+2.5);
   });
 }
 
@@ -312,77 +330,69 @@ let mode='tab',inMode='mic',rec=false,actx=null,ana=null,strm=null;
 let notes=[],t0=0,prog=[],cWin=1500,sens=7;
 let lastMidi=-1,lastT=0,selC=-1,pBuf=[],chordBuf=[],lastChordTime=0;
 let currentKey=null,currentPredictions=[];const MCI=600;
-// Guitar mode: accumulate pitches from rapid autocorrelation reads
-let gtrPitchBuf=[]; // {midi, time} - short window to capture strummed notes
-const GTR_WINDOW=250; // ms - a strum takes ~100-200ms
+let gtrPitchBuf=[];const GTR_WINDOW=250;
+
 function getSP(){const t=(sens-1)/9;return{rms:.025*(1-t)+.002*t,corr:.7*(1-t)+.15*t}}
 function stP(r){pBuf.push(r);if(pBuf.length>3)pBuf.shift();if(pBuf.length<2)return r;const s=[...pBuf].sort((a,b)=>a-b);return s[Math.floor(s.length/2)]}
 
-// ═══ AUTOCORRELATION (for hum/audio) ═══
+// ═══ AUTOCORRELATION ═══
 function acorr(buf,sr){const N=buf.length;let rms=0;for(let i=0;i<N;i++)rms+=buf[i]*buf[i];rms=Math.sqrt(rms/N);document.getElementById('lB').style.width=Math.min(100,rms*500)+'%';const sp=getSP();if(rms<sp.rms)return-1;const hN=Math.floor(N/2),c=new Float32Array(hN);for(let tau=0;tau<hN;tau++){let s=0;for(let i=0;i<N-tau;i++)s+=buf[i]*buf[i+tau];c[tau]=s}const c0=c[0];if(!c0)return-1;for(let i=0;i<hN;i++)c[i]/=c0;let fd=1;while(fd<hN-1&&c[fd]>.1)fd++;let bT=-1,bV=-1;for(let i=fd;i<hN-1;i++)if(c[i]>=c[i-1]&&c[i]>=c[i+1]&&c[i]>bV){bV=c[i];bT=i}if(bT<1||bV<sp.corr)return-1;if(bT>0&&bT<hN-1){const a=c[bT-1],b=c[bT],cv=c[bT+1],dn=2*(a-2*b+cv);if(Math.abs(dn)>.0001){const d=(a-cv)/dn;if(Math.abs(d)<1)bT+=d}}const f=sr/bT;return(f<65||f>1100)?-1:f}
 
 // ═══ AUDIO ═══
-async function startA(){
-  actx=new(window.AudioContext||window.webkitAudioContext)();
-  strm=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:inMode!=='guitar'}});
-  const s=actx.createMediaStreamSource(strm);
-  ana=actx.createAnalyser();
-  ana.fftSize=inMode==='guitar'?8192:4096;
-  ana.smoothingTimeConstant=inMode==='guitar'?0.8:0.5;
-  s.connect(ana);
-  t0=performance.now();rec=true;pBuf=[];chordBuf=[];lastChordTime=0;
-  document.getElementById('mic').classList.add('on');document.getElementById('ov').classList.add('hide');
-  loop();
-}
+async function startA(){actx=new(window.AudioContext||window.webkitAudioContext)();strm=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:inMode!=='guitar'}});const s=actx.createMediaStreamSource(strm);ana=actx.createAnalyser();ana.fftSize=4096;s.connect(ana);t0=performance.now();rec=true;pBuf=[];chordBuf=[];gtrPitchBuf=[];stableBuf=[];humPitchHistory=[];humKey=null;lastChordTime=0;document.getElementById('mic').classList.add('on');document.getElementById('ov').classList.add('hide');loop()}
 function stopA(){rec=false;document.getElementById('mic').classList.remove('on');document.getElementById('lB').style.width='0%';if(strm){strm.getTracks().forEach(t=>t.stop());strm=null}if(actx){actx.close();actx=null}}
 function toggle(){rec?stopA():startA().catch(console.error)}
 
 // ═══ MAIN LOOP ═══
 function loop(){
   if(!rec)return;
+  const buf=new Float32Array(ana.fftSize);
+  ana.getFloatTimeDomainData(buf);
+  const rf=acorr(buf,actx.sampleRate);
   const now=performance.now();
 
-  if(inMode==='guitar'){
-    // Guitar mode: autocorrelation pitch detection (same as tuner apps)
-    // then accumulate multiple pitches from a strum and detect chord
-    const buf=new Float32Array(ana.fftSize);
-    ana.getFloatTimeDomainData(buf);
-    const rf=acorr(buf,actx.sampleRate);
-
+  if(inMode==='mic'){
+    // ══ HUM MODE: karaoke-style processing ══
     if(rf>0){
-      const midi=69+12*Math.log2(rf/440);
-      const rm=Math.round(midi);
-      const nn=NM[((rm%12)+12)%12];
-      document.getElementById('pN').textContent=nn;
-      document.getElementById('pN').classList.add('on');
-      document.getElementById('pH').textContent=rf.toFixed(0);
+      const rawMidi=69+12*Math.log2(rf/440);
+      const stableMidi=getStablePitch(rawMidi);
 
-      // Accumulate detected pitches in short window
-      gtrPitchBuf.push({midi:rm,time:now});
-      gtrPitchBuf=gtrPitchBuf.filter(n=>now-n.time<GTR_WINDOW);
+      if(stableMidi!==null){
+        const nn=NM[((stableMidi%12)+12)%12];
+        const rawNN=NM[((Math.round(rawMidi)%12)+12)%12];
+        document.getElementById('pN').textContent=nn;
+        document.getElementById('pN').classList.add('on');
+        document.getElementById('pH').textContent=rf.toFixed(0);
+        // Show snap info
+        if(rawNN!==nn) document.getElementById('snapI').textContent=rawNN+'→'+nn;
+        else document.getElementById('snapI').textContent='';
 
-      // Also add to TAB notes
-      const gap=rm===lastMidi?300:100;
-      if(rm!==lastMidi||(now-lastT)>gap){
-        const el=(now-t0)/1000,prev=notes.length?notes[notes.length-1]:null;
-        const pos=pickPos(midi,prev?prev.str:-1,prev?prev.fret:-1);
-        if(pos){notes.push({time:el,midi:rm,str:pos.str,fret:pos.fret,noteName:nn,color:SC[pos.str]});if(notes.length>2)reOpt(notes,Math.max(0,notes.length-5));lastMidi=rm;lastT=now}
-      }
+        // Accumulate for key estimation
+        humPitchHistory.push(stableMidi);
+        if(humPitchHistory.length>50) humPitchHistory=humPitchHistory.slice(-50);
+        if(humPitchHistory.length%4===0) updateHumKey();
 
-      // Try chord detection from accumulated pitches
-      if(now-lastChordTime>MCI){
-        const uq=[...new Set(gtrPitchBuf.map(n=>n.midi))];
-        if(uq.length>=2){
-          // Guitar mode: minimal theory boost for accuracy
-          const ch=detectChordGuitar(uq);
+        // TAB note
+        const gap=stableMidi===lastMidi?400:150;
+        if(stableMidi!==lastMidi||(now-lastT)>gap){
+          const el=(now-t0)/1000,prev=notes.length?notes[notes.length-1]:null;
+          const pos=pickPos(stableMidi,prev?prev.str:-1,prev?prev.fret:-1);
+          if(pos){notes.push({time:el,midi:stableMidi,str:pos.str,fret:pos.fret,noteName:nn,color:SC[pos.str]});if(notes.length>2)reOpt(notes,Math.max(0,notes.length-5));lastMidi=stableMidi;lastT=now}
+        }
+
+        // Chord detection: diatonic only
+        chordBuf.push({midi:stableMidi,time:now});
+        chordBuf=chordBuf.filter(n=>now-n.time<cWin);
+        if(now-lastChordTime>MCI){
+          const uq=[...new Set(chordBuf.map(n=>n.midi))];
+          const ch=detectChordHum(uq,humKey,currentPredictions);
           if(ch){
             const last=prog.length?prog[prog.length-1]:null;
             if(!last||last.name!==ch.name){
               const el=(now-t0)/1000,v=VOI[ch.name]?VOI[ch.name][0]:null;
-              prog.push({name:ch.name,time:el,voicing:v,notes:ch.notes});
-              lastChordTime=now;
-              gtrPitchBuf=[];
-              updTh();updStrip();updPr();
+              prog.push({name:ch.name,time:el,voicing:v,notes:ch.notes,degree:ch.deg||''});
+              lastChordTime=now;chordBuf=[];
+              currentKey=humKey;updTh();updStrip();updPr();
               if(mode==='learn')renderLearn();
             }
           }
@@ -390,39 +400,49 @@ function loop(){
       }
     } else {
       document.getElementById('pN').classList.remove('on');
-      // Clear stale pitches on silence
-      if(gtrPitchBuf.length&&now-gtrPitchBuf[gtrPitchBuf.length-1].time>400) gtrPitchBuf=[];
+      document.getElementById('snapI').textContent='';
+      if(chordBuf.length&&now-chordBuf[chordBuf.length-1].time>300)chordBuf=[];
     }
-  } else {
-    // Hum/audio mode: autocorrelation pitch detection
-    const buf=new Float32Array(ana.fftSize);
-    ana.getFloatTimeDomainData(buf);
-    const rf=acorr(buf,actx.sampleRate);
+
+  } else if(inMode==='guitar'){
+    // ══ GUITAR MODE: accurate, autocorrelation-based ══
     if(rf>0){
-      const rm0=69+12*Math.log2(rf/440),midi=stP(rm0),rm=Math.round(midi),nn=NM[((rm%12)+12)%12];
+      const midi=69+12*Math.log2(rf/440);
+      const rm=Math.round(midi);const nn=NM[((rm%12)+12)%12];
       document.getElementById('pN').textContent=nn;document.getElementById('pN').classList.add('on');
       document.getElementById('pH').textContent=rf.toFixed(0);
-      const gap=rm===lastMidi?400:150;
+      document.getElementById('snapI').textContent='';
+      gtrPitchBuf.push({midi:rm,time:now});
+      gtrPitchBuf=gtrPitchBuf.filter(n=>now-n.time<GTR_WINDOW);
+      const gap=rm===lastMidi?300:100;
       if(rm!==lastMidi||(now-lastT)>gap){
         const el=(now-t0)/1000,prev=notes.length?notes[notes.length-1]:null;
         const pos=pickPos(midi,prev?prev.str:-1,prev?prev.fret:-1);
         if(pos){notes.push({time:el,midi:rm,str:pos.str,fret:pos.fret,noteName:nn,color:SC[pos.str]});if(notes.length>2)reOpt(notes,Math.max(0,notes.length-5));lastMidi=rm;lastT=now}
       }
-      chordBuf.push({midi:rm,time:now});chordBuf=chordBuf.filter(n=>now-n.time<cWin);
       if(now-lastChordTime>MCI){
-        const uq=[...new Set(chordBuf.map(n=>n.midi))];
-        const ch=detectChord(uq,currentPredictions);
-        if(ch){
-          const last=prog.length?prog[prog.length-1]:null;
-          if(!last||last.name!==ch.name){
-            const el=(now-t0)/1000,v=VOI[ch.name]?VOI[ch.name][0]:null;
-            prog.push({name:ch.name,time:el,voicing:v,notes:ch.notes});
-            lastChordTime=now;chordBuf=[];
-            updTh();updStrip();updPr();
-            if(mode==='learn')renderLearn();
-          }
+        const uq=[...new Set(gtrPitchBuf.map(n=>n.midi))];
+        if(uq.length>=2){
+          const ch=detectChordGuitar(uq);
+          if(ch){const last=prog.length?prog[prog.length-1]:null;if(!last||last.name!==ch.name){const el=(now-t0)/1000,v=VOI[ch.name]?VOI[ch.name][0]:null;prog.push({name:ch.name,time:el,voicing:v,notes:ch.notes});lastChordTime=now;gtrPitchBuf=[];updTh();updStrip();updPr();if(mode==='learn')renderLearn()}}
         }
       }
+    } else {
+      document.getElementById('pN').classList.remove('on');
+      if(gtrPitchBuf.length&&now-gtrPitchBuf[gtrPitchBuf.length-1].time>400)gtrPitchBuf=[];
+    }
+
+  } else {
+    // ══ AUDIO MODE: theory-boosted ══
+    if(rf>0){
+      const rm0=69+12*Math.log2(rf/440),midi=stP(rm0),rm=Math.round(midi),nn=NM[((rm%12)+12)%12];
+      document.getElementById('pN').textContent=nn;document.getElementById('pN').classList.add('on');
+      document.getElementById('pH').textContent=rf.toFixed(0);
+      document.getElementById('snapI').textContent='';
+      const gap=rm===lastMidi?400:150;
+      if(rm!==lastMidi||(now-lastT)>gap){const el=(now-t0)/1000,prev=notes.length?notes[notes.length-1]:null;const pos=pickPos(midi,prev?prev.str:-1,prev?prev.fret:-1);if(pos){notes.push({time:el,midi:rm,str:pos.str,fret:pos.fret,noteName:nn,color:SC[pos.str]});if(notes.length>2)reOpt(notes,Math.max(0,notes.length-5));lastMidi=rm;lastT=now}}
+      chordBuf.push({midi:rm,time:now});chordBuf=chordBuf.filter(n=>now-n.time<cWin);
+      if(now-lastChordTime>MCI){const uq=[...new Set(chordBuf.map(n=>n.midi))];const ch=detectChordAudio(uq,currentPredictions);if(ch){const last=prog.length?prog[prog.length-1]:null;if(!last||last.name!==ch.name){const el=(now-t0)/1000,v=VOI[ch.name]?VOI[ch.name][0]:null;prog.push({name:ch.name,time:el,voicing:v,notes:ch.notes});lastChordTime=now;chordBuf=[];updTh();updStrip();updPr();if(mode==='learn')renderLearn()}}}
     } else {
       document.getElementById('pN').classList.remove('on');
       if(chordBuf.length&&now-chordBuf[chordBuf.length-1].time>300)chordBuf=[];
@@ -432,7 +452,7 @@ function loop(){
 }
 
 // ═══ THEORY ═══
-function updTh(){const ns=prog.map(c=>c.name);currentKey=detectKey(ns);document.getElementById('kB').textContent=currentKey!==null?'Key: '+NM[currentKey]:'Key: --';prog.forEach(c=>c.degree=getDeg(c.name,currentKey));const vd=prog.map(c=>c.degree).filter(d=>d&&d!=='?');document.getElementById('paN').textContent=matchPat(vd)?.name||''}
+function updTh(){const ns=prog.map(c=>c.name);if(inMode!=='mic')currentKey=detectKey(ns);else currentKey=humKey;document.getElementById('kB').textContent=currentKey!==null?'Key: '+NM[currentKey]:'Key: --';prog.forEach(c=>{if(!c.degree||c.degree==='?')c.degree=getDeg(c.name,currentKey)});const vd=prog.map(c=>c.degree).filter(d=>d&&d!=='?');document.getElementById('paN').textContent=matchPat(vd)?.name||''}
 function updPr(){if(!prog.length||currentKey===null){currentPredictions=[];renderPrUI();return}currentPredictions=predictNext(prog[prog.length-1].degree,currentKey);renderPrUI()}
 function renderPrUI(){const el=document.getElementById('pr');let h='<span class="plbl">次→</span>';if(!currentPredictions.length)h+='<span style="font-size:7px;color:var(--dm)">検出中...</span>';else currentPredictions.forEach((p,i)=>{h+=`<span class="${i===0?'pb hot':'pb'}" onclick="forceChord('${p.name}');playChord('${p.name}')">${p.name} <span class="pd">${p.deg}</span></span>`});el.innerHTML=h}
 function forceChord(nm){const now=performance.now(),el=(now-t0)/1000,v=VOI[nm]?VOI[nm][0]:null;if(prog.length&&prog[prog.length-1].name===nm)return;prog.push({name:nm,time:el,voicing:v,notes:[]});lastChordTime=now;chordBuf=[];updTh();updStrip();updPr();if(mode==='learn')renderLearn()}
@@ -441,7 +461,7 @@ function forceChord(nm){const now=performance.now(),el=(now-t0)/1000,v=VOI[nm]?V
 function updStrip(){const el=document.getElementById('cb');let h='<span class="lbl">進行</span>';prog.forEach((c,i)=>{if(i>0)h+='<span class="ca">→</span>';const cls=i===prog.length-1?'ci now':i===selC?'ci sel':'ci';const nm=c.name.replace(/'/g,"\\'");h+=`<span class="${cls}" onclick="showDg(${i});playChord('${nm}')"><span class="cn">${c.name}</span><span class="cd">${c.degree||''}</span></span>`});el.innerHTML=h;el.scrollLeft=el.scrollWidth;if(prog.length)showDg(prog.length-1)}
 
 // ═══ DIAGRAM ═══
-function showDg(i){selC=i;const c=prog[i];if(!c)return;document.getElementById('dg').classList.add('open');document.getElementById('dN').textContent=c.name;document.querySelectorAll('.ci').forEach((e,j)=>e.className=j===i?'ci sel':j===prog.length-1?'ci now':'ci');const inf=document.getElementById('dI'),ds=c.degree?' ('+c.degree+')':'',fn=getFunc(c.degree),fnL={'T':'トニック','SD':'サブドミナント','D':'ドミナント'}[fn]||'';if(c.voicing){inf.innerHTML=`${c.name}${ds} ${fnL}<br>E A D G B e<br>${c.voicing.map(f=>f===-1?'x':f).join(' ')}<br>構成音: ${(c.notes||[]).join('·')}<br><button class="play-btn" onclick="playChord('${c.name}')">♪ 鳴らす</button>`;drawDg(c.voicing)}else{inf.innerHTML=`${c.name}${ds} ${fnL}<br><button class="play-btn" onclick="playChord('${c.name}')">♪ 鳴らす</button>`;drawDgE()}}
+function showDg(i){selC=i;const c=prog[i];if(!c)return;document.getElementById('dg').classList.add('open');document.getElementById('dN').textContent=c.name;document.querySelectorAll('.ci').forEach((e,j)=>e.className=j===i?'ci sel':j===prog.length-1?'ci now':'ci');const inf=document.getElementById('dI'),ds=c.degree?' ('+c.degree+')':'',fn=getFunc(c.degree),fnL={'T':'トニック','SD':'サブドミナント','D':'ドミナント'}[fn]||'';if(c.voicing){inf.innerHTML=`${c.name}${ds} ${fnL}<br>E A D G B e<br>${c.voicing.map(f=>f===-1?'x':f).join(' ')}<br>構成音: ${(c.notes||[]).join('·')}<br><button class="play-btn" onclick="playChord('${c.name.replace(/'/g,"\\'")}')">♪ 鳴らす</button>`;drawDg(c.voicing)}else{inf.innerHTML=`${c.name}${ds} ${fnL}<br><button class="play-btn" onclick="playChord('${c.name.replace(/'/g,"\\'")}')">♪ 鳴らす</button>`;drawDgE()}}
 function drawDg(v){const cv=document.getElementById('dC'),c=cv.getContext('2d'),d=window.devicePixelRatio||1;cv.width=120*d;cv.height=90*d;cv.style.width='120px';cv.style.height='90px';c.scale(d,d);c.clearRect(0,0,120,90);const L=18,T=14,W=84,H=64,ss=W/5,fs=H/4;const pl=v.filter(f=>f>0);let mf=pl.length?Math.min(...pl):1;if(mf<=2)mf=1;if(mf===1){c.fillStyle='#555';c.fillRect(L-1,T-1,W+2,2)}else{c.fillStyle='#444';c.font='6px JetBrains Mono';c.textAlign='right';c.textBaseline='middle';c.fillText(mf+'fr',L-3,T+fs/2)}c.strokeStyle='#252530';c.lineWidth=1;for(let i=0;i<6;i++){c.beginPath();c.moveTo(L+i*ss,T);c.lineTo(L+i*ss,T+H);c.stroke()}for(let i=0;i<=4;i++){c.beginPath();c.moveTo(L,T+i*fs);c.lineTo(L+W,T+i*fs);c.stroke()}for(let i=0;i<6;i++){const x=L+i*ss,f=v[i];if(f===-1){c.fillStyle='#444';c.font='bold 7px JetBrains Mono';c.textAlign='center';c.textBaseline='bottom';c.fillText('×',x,T-2)}else if(f===0){c.strokeStyle='#777';c.lineWidth=1;c.beginPath();c.arc(x,T-4,3,0,Math.PI*2);c.stroke()}else{const y=T+(f-mf)*fs+fs/2;c.fillStyle=SC[5-i];c.beginPath();c.arc(x,y,4.5,0,Math.PI*2);c.fill();c.fillStyle='#000';c.font='bold 5px JetBrains Mono';c.textAlign='center';c.textBaseline='middle';c.fillText(f,x,y)}}c.fillStyle='#333';c.font='5px JetBrains Mono';c.textAlign='center';c.textBaseline='top';['E','A','D','G','B','e'].forEach((s,i)=>c.fillText(s,L+i*ss,T+H+2))}
 function drawDgE(){const cv=document.getElementById('dC'),c=cv.getContext('2d'),d=window.devicePixelRatio||1;cv.width=120*d;cv.height=90*d;cv.style.width='120px';cv.style.height='90px';c.scale(d,d);c.clearRect(0,0,120,90);c.fillStyle='#333';c.font='8px JetBrains Mono';c.textAlign='center';c.textBaseline='middle';c.fillText('—',60,45)}
 
@@ -449,20 +469,20 @@ function drawDgE(){const cv=document.getElementById('dC'),c=cv.getContext('2d'),
 function renderLearn(){
   const el=document.getElementById('lP');const k=currentKey;const kName=k!==null?NM[k]:'C';const kNotes=scaleNotes(k??0);let h='';
   if(prog.length>=2&&k!==null){const degs=prog.map(c=>c.degree).filter(d=>d&&d!=='?');const pat=matchPat(degs);h+=`<div class="dn-box"><h4>検出された進行</h4><p>キー: <strong style="color:var(--acc)">${kName}</strong></p><p>${prog.map(c=>{const fn=getFunc(c.degree);const fc={'T':'color:var(--acc)','SD':'color:var(--gold)','D':'color:var(--blue)'}[fn]||'';return`<strong style="${fc}">${c.name}(${c.degree||'?'})</strong>`}).join(' → ')}</p><p style="margin-top:3px">機能: ${prog.map(c=>({'T':'安定','SD':'展開','D':'緊張'}[getFunc(c.degree)]||'?')).join('→')}</p>${pat?`<p style="color:var(--gold);margin-top:4px"><strong>${pat.name}</strong> — ${pat.desc}</p>`:''}</div>`}
-  h+=`<div class="ls"><h3>スケール → コード</h3><p><span class="hi">${kName}メジャースケール</span>: ${kNotes.join(' ')}</p><p>各音から1つ飛ばしに3つ重ねる → コード</p><table class="func-tbl"><tr><th>度数</th><th>コード</th><th>構成</th><th>機能</th></tr>`;
+  h+=`<div class="ls"><h3>スケール → コード</h3><p><span style="color:var(--acc);font-weight:700">${kName}メジャースケール</span>: ${kNotes.join(' ')}</p><table class="func-tbl"><tr><th>度数</th><th>コード</th><th>構成</th><th>機能</th></tr>`;
   const fnL={'T':'<span style="color:var(--acc)">T</span>','SD':'<span style="color:var(--gold)">SD</span>','D':'<span style="color:var(--blue)">D</span>'};
-  DIA.forEach((d,i)=>{const cn=kn(d.d)||NM[(0+d.o)%12]+d.t;h+=`<tr><td class="ft">${d.d}</td><td>${cn}</td><td style="color:var(--dm)">${kNotes[i]}-${kNotes[(i+2)%7]}-${kNotes[(i+4)%7]}</td><td>${fnL[d.fn]}</td></tr>`});
+  DIA.forEach((d,i)=>{h+=`<tr><td class="ft">${d.d}</td><td>${kn(d.d)||NM[(0+d.o)%12]+d.t}</td><td style="color:var(--dm)">${kNotes[i]}-${kNotes[(i+2)%7]}-${kNotes[(i+4)%7]}</td><td>${fnL[d.fn]}</td></tr>`});
   h+=`</table></div>`;
-  h+=`<div class="ls"><h3>三大機能</h3><p>T→SD→D→T の循環が音楽の基本。</p>`;
-  h+=`<div class="lc" onclick="this.classList.toggle('open')"><h4><span class="tg t-t">T</span> トニック</h4><div class="ld"><p><strong>I, iii, vi</strong>${k!==null?` = ${kn('I')}, ${kn('iii')}, ${kn('vi')}`:''}</p><p>「家」の安定感。主音が基準。viはIと2つ共通音 → 暗い安定。</p></div></div>`;
-  h+=`<div class="lc" onclick="this.classList.toggle('open')"><h4><span class="tg t-s">SD</span> サブドミナント</h4><div class="ld"><p><strong>IV, ii</strong>${k!==null?` = ${kn('IV')}, ${kn('ii')}`:''}</p><p>「外出」の広がり。Iから完全4度上。近いけど違う場所。</p></div></div>`;
-  h+=`<div class="lc" onclick="this.classList.toggle('open')"><h4><span class="tg t-d">D</span> ドミナント</h4><div class="ld"><p><strong>V, vii°</strong>${k!==null?` = ${kn('V')}, ${kn('vii°')}`:''}</p><p>「帰りたい」緊張。導音（${k!==null?NM[(k+11)%12]:''}）がIの半音下 → 解決の引力。</p></div></div></div>`;
+  h+=`<div class="ls"><h3>三大機能</h3>`;
+  h+=`<div class="lc" onclick="this.classList.toggle('open')"><h4><span class="tg t-t">T</span> トニック</h4><div class="ld"><p><strong>I, iii, vi</strong>${k!==null?` = ${kn('I')}, ${kn('iii')}, ${kn('vi')}`:''}</p><p>「家」の安定感。</p></div></div>`;
+  h+=`<div class="lc" onclick="this.classList.toggle('open')"><h4><span class="tg t-s">SD</span> サブドミナント</h4><div class="ld"><p><strong>IV, ii</strong>${k!==null?` = ${kn('IV')}, ${kn('ii')}`:''}</p><p>「外出」の広がり。</p></div></div>`;
+  h+=`<div class="lc" onclick="this.classList.toggle('open')"><h4><span class="tg t-d">D</span> ドミナント</h4><div class="ld"><p><strong>V, vii°</strong>${k!==null?` = ${kn('V')}`:''}</p><p>「帰りたい」緊張。導音の引力。</p></div></div></div>`;
   h+=`<div class="ls"><h3>定番進行</h3>`;
   PATS.forEach(p=>{h+=`<div class="lc" onclick="this.classList.toggle('open')"><h4>${p.name}</h4><div class="ld"><div class="dr">${p.degs.map(d=>`<span class="dg">${d}</span>`).join('→')}</div>${k!==null?`<p style="color:var(--blue);margin-top:4px">Key ${kName}: ${p.degs.map(dg=>{const di=DIA.find(x=>x.d===dg);return di?NM[(k+di.o)%12]+di.t:dg}).join(' → ')}</p>`:''}<p style="margin-top:4px">${p.desc}</p><p style="font-size:7px;color:var(--dm)">例: ${p.ex}</p></div></div>`});
   h+=`</div>`;el.innerHTML=h;
 }
 
-// ═══ TAB ═══
+// ═══ TAB CANVAS ═══
 const tc=document.getElementById('tc'),tx=tc.getContext('2d');
 function resz(){const r=tc.parentElement.getBoundingClientRect(),d=window.devicePixelRatio||1;tc.width=r.width*d;tc.height=r.height*d;tc.style.width=r.width+'px';tc.style.height=r.height+'px'}
 window.addEventListener('resize',resz);resz();const VIS=8;
@@ -470,14 +490,8 @@ function draw(){const d=window.devicePixelRatio||1,w=tc.width,h=tc.height;tx.cle
 
 // ═══ UI ═══
 function setMode(m){mode=m;document.querySelectorAll('#mT button').forEach(b=>b.classList.toggle('on',b.textContent===m.toUpperCase()));document.getElementById('lP').classList.toggle('show',m==='learn');tc.style.display=m==='learn'?'none':'block';if(m==='learn')renderLearn();if(m==='chord'&&prog.length)showDg(prog.length-1)}
-function setIn(s){
-  inMode=s;
-  document.getElementById('cMic').classList.toggle('on',s==='mic');
-  document.getElementById('cAud').classList.toggle('on',s==='audio');
-  document.getElementById('cGtr').classList.toggle('on',s==='guitar');
-  if(rec){stopA();startA().catch(console.error)}
-}
-function clearAll(){notes=[];chordBuf=[];gtrPitchBuf=[];prog=[];lastMidi=-1;selC=-1;pBuf=[];lastChordTime=0;currentKey=null;currentPredictions=[];document.getElementById('pN').textContent='--';document.getElementById('pH').textContent='---';document.getElementById('cb').innerHTML='<span class="lbl">進行</span>';document.getElementById('dg').classList.remove('open');document.getElementById('kB').textContent='Key: --';document.getElementById('paN').textContent='';renderPrUI();if(mode==='learn')renderLearn();if(rec)t0=performance.now()}
+function setIn(s){inMode=s;document.getElementById('cMic').classList.toggle('on',s==='mic');document.getElementById('cAud').classList.toggle('on',s==='audio');document.getElementById('cGtr').classList.toggle('on',s==='guitar');if(rec){stopA();startA().catch(console.error)}}
+function clearAll(){notes=[];chordBuf=[];gtrPitchBuf=[];prog=[];lastMidi=-1;selC=-1;pBuf=[];stableBuf=[];humPitchHistory=[];humKey=null;lastChordTime=0;currentKey=null;currentPredictions=[];document.getElementById('pN').textContent='--';document.getElementById('pH').textContent='---';document.getElementById('snapI').textContent='';document.getElementById('cb').innerHTML='<span class="lbl">進行</span>';document.getElementById('dg').classList.remove('open');document.getElementById('kB').textContent='Key: --';document.getElementById('paN').textContent='';renderPrUI();if(mode==='learn')renderLearn();if(rec)t0=performance.now()}
 function doExport(){if(!notes.length&&!prog.length)return;let out='';if(notes.length){const q=.2,mxT=notes[notes.length-1].time,cols=Math.ceil(mxT/q)+1;const lines=Array.from({length:6},()=>Array(cols).fill('-'));for(const n of notes){const c=Math.round(n.time/q);if(c>=0&&c<cols)lines[n.str][c]=String(n.fret)}for(let i=0;i<6;i++)out+=SL[i]+'|'+lines[i].join('')+'|\n'}if(prog.length){out+='\n進行: '+prog.map(c=>c.name+(c.degree?'('+c.degree+')':'')).join(' → ')+'\n';if(currentKey!==null)out+='Key: '+NM[currentKey]+'\n'}navigator.clipboard.writeText(out).then(()=>{const b=document.querySelectorAll('.btn')[1];const o=b.textContent;b.textContent='COPIED!';setTimeout(()=>b.textContent=o,1200)}).catch(()=>alert(out))}
 renderLearn();
 </script>
