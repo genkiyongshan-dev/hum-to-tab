@@ -483,11 +483,12 @@ function stopA(){
 }
 function toggle(){rec?stopA():startA().catch(console.error)}
 
-// ═══ BATCH AUDIO ANALYSIS ═══
+// ═══ BATCH AUDIO ANALYSIS (contextual multi-pass) ═══
 async function analyzeRecording(){
   if(!audioChunks.length)return;
   document.getElementById('pN').textContent='...';
   document.getElementById('pH').textContent='分析中';
+  document.getElementById('snapI').textContent='テンポ検出中...';
 
   const blob=new Blob(audioChunks,{type:'audio/webm'});
   const arrayBuf=await blob.arrayBuffer();
@@ -501,82 +502,214 @@ async function analyzeRecording(){
   const data=audioBuf.getChannelData(0);
   const totalSec=data.length/sr;
 
-  // Analyze in chunks (each chunk = ~0.5s for chord-level resolution)
-  const chunkSec=0.5;
-  const chunkSamples=Math.floor(sr*chunkSec);
-  const numChunks=Math.floor(data.length/chunkSamples);
+  // ═══ PASS 1: Tempo detection ═══
+  document.getElementById('snapI').textContent='テンポ検出中...';
+  const detectedBPM=detectBPM(data,sr);
+  const barSec=(60/detectedBPM)*4;
+  tempo=Math.round(detectedBPM);
+  document.getElementById('tempoVal').textContent=tempo;
 
+  const numBars=Math.max(1,Math.floor(totalSec/barSec));
+  const SIMPLE={'':[0,4,7],'m':[0,3,7]};
+
+  // ═══ PASS 2: Generate TOP 4 candidates per bar ═══
+  document.getElementById('snapI').textContent='コード候補生成中...';
+  const barCandidates=[]; // array of arrays: [[{name,score},...], ...]
+
+  for(let bar=0;bar<numBars;bar++){
+    const startSample=Math.floor(bar*barSec*sr);
+    const endSample=Math.min(Math.floor((bar+1)*barSec*sr),data.length);
+    const chunk=data.slice(startSample,endSample);
+    const chroma=computeChroma(chunk,sr);
+
+    const cands=[];
+    if(chroma){
+      for(let r=0;r<12;r++){
+        for(const[sf,pt]of Object.entries(SIMPLE)){
+          const cpc=pt.map(p=>(r+p)%12);
+          let energy=0;
+          for(const p of cpc) energy+=chroma[p];
+          energy/=cpc.length;
+          let penalty=0;
+          for(let i=0;i<12;i++){if(!cpc.includes(i)&&chroma[i]>0.3)penalty+=chroma[i]*0.03}
+          cands.push({name:NM[r]+sf,score:energy-penalty,root:r,type:sf,notes:cpc.map(p=>NM[p])});
+        }
+      }
+      cands.sort((a,b)=>b.score-a.score);
+    }
+    barCandidates.push(cands.slice(0,6)); // keep top 6 candidates
+  }
+
+  // ═══ PASS 3: Key estimation from strongest candidates ═══
+  document.getElementById('snapI').textContent='キー推定中...';
+
+  // Weight first bar, last bar, and overall histogram
+  const keyVotes=new Array(12).fill(0);
+  barCandidates.forEach((cands,barIdx)=>{
+    if(!cands.length)return;
+    const top=cands[0];
+    const weight=barIdx===0?3:(barIdx===barCandidates.length-1?2:1); // first bar weighted 3x
+    const rootPC=NM.indexOf(top.name.replace('m',''));
+    // Vote for keys where this chord is diatonic
+    for(let k=0;k<12;k++){
+      const dias=DIA.map(d=>NM[(k+d.o)%12]+d.t);
+      if(dias.includes(top.name)) keyVotes[k]+=weight*top.score;
+    }
+  });
+  let audioKey=0,bestKeyScore=0;
+  for(let k=0;k<12;k++){if(keyVotes[k]>bestKeyScore){bestKeyScore=keyVotes[k];audioKey=k}}
+
+  // Build diatonic chord list for this key (no vii°)
+  const diaChords=DIA.filter(d=>d.d!=='vii°').map(d=>({
+    name:NM[(audioKey+d.o)%12]+d.t,
+    deg:d.d,
+    fn:d.fn,
+    root:(audioKey+d.o)%12
+  }));
+  const diaNames=diaChords.map(d=>d.name);
+
+  // ═══ PASS 4: Viterbi-style optimal path selection ═══
+  // For each bar, pick the chord that maximizes:
+  //   audio score + diatonic bonus + transition bonus from previous chord
+  document.getElementById('snapI').textContent='進行最適化中...';
+
+  const bestPath=[]; // {name, score, time, notes}
+
+  for(let bar=0;bar<numBars;bar++){
+    const cands=barCandidates[bar];
+    if(!cands.length){
+      // No candidates: repeat previous or skip
+      if(bestPath.length) bestPath.push({...bestPath[bestPath.length-1],time:bar*barSec});
+      continue;
+    }
+
+    let bestChoice=null, bestTotal=-Infinity;
+
+    for(const cand of cands){
+      let total=cand.score;
+
+      // ── Diatonic bonus (strong) ──
+      if(diaNames.includes(cand.name)) total+=0.15;
+
+      // ── Snap non-diatonic to nearest diatonic (check if a diatonic chord scores similarly) ──
+      const isDiatonic=diaNames.includes(cand.name);
+
+      // ── First bar bonus: prefer I or vi (common song starts) ──
+      if(bar===0){
+        const deg=getDeg(cand.name,audioKey);
+        if(deg==='I') total+=0.1;
+        else if(deg==='vi') total+=0.08;
+      }
+
+      // ── Last bar bonus: prefer I (songs typically resolve to tonic) ──
+      if(bar===numBars-1){
+        const deg=getDeg(cand.name,audioKey);
+        if(deg==='I') total+=0.12;
+        else if(deg==='V') total+=0.05; // V at end = half cadence, ok
+      }
+
+      // ── Transition bonus from previous chord ──
+      if(bestPath.length>0){
+        const prevName=bestPath[bestPath.length-1].name;
+        const prevDeg=getDeg(prevName,audioKey);
+        const thisDeg=getDeg(cand.name,audioKey);
+        const prevFn=getFunc(prevDeg);
+        const thisFn=getFunc(thisDeg);
+
+        // Natural functional flow: T→SD, SD→D, D→T
+        if((prevFn==='T'&&thisFn==='SD')||(prevFn==='SD'&&thisFn==='D')||(prevFn==='D'&&thisFn==='T')) total+=0.08;
+        // Same chord continuing is natural
+        if(prevName===cand.name) total+=0.05;
+        // Same function is ok
+        if(prevFn===thisFn&&prevName!==cand.name) total+=0.02;
+        // V→I is the strongest resolution
+        if(prevDeg==='V'&&thisDeg==='I') total+=0.1;
+        // IV→V is classic pre-dominant
+        if(prevDeg==='IV'&&thisDeg==='V') total+=0.06;
+        // vi→IV is very common
+        if(prevDeg==='vi'&&thisDeg==='IV') total+=0.06;
+
+        // Penalize unlikely jumps
+        const prevRoot=NM.indexOf(prevName.replace('m',''));
+        const thisRoot=NM.indexOf(cand.name.replace('m',''));
+        const rootDist=Math.min(Math.abs(prevRoot-thisRoot),12-Math.abs(prevRoot-thisRoot));
+        if(rootDist===1||rootDist===6) total-=0.03; // semitone or tritone jumps are rare
+      }
+
+      if(total>bestTotal){bestTotal=total;bestChoice={name:cand.name,score:total,time:bar*barSec,notes:cand.notes}}
+    }
+
+    // If best choice is not diatonic, try snapping to nearest diatonic
+    if(bestChoice&&!diaNames.includes(bestChoice.name)){
+      const origRoot=NM.indexOf(bestChoice.name.replace('m',''));
+      let snapName=null,snapDist=99;
+      for(const dn of diaNames){
+        const dRoot=NM.indexOf(dn.replace('m',''));
+        const dist=Math.min(Math.abs(origRoot-dRoot),12-Math.abs(origRoot-dRoot));
+        if(dist<snapDist){snapDist=dist;snapName=dn}
+      }
+      // Snap if distance is small (1 semitone)
+      if(snapName&&snapDist<=1) bestChoice.name=snapName;
+    }
+
+    if(bestChoice) bestPath.push(bestChoice);
+  }
+
+  // ═══ PASS 5: Deduplicate consecutive same chords ═══
   prog=[];
-  const detectedChords=[];
-
-  for(let ci=0;ci<numChunks;ci++){
-    const start=ci*chunkSamples;
-    const chunk=data.slice(start,start+chunkSamples);
-
-    // Compute chroma from FFT
-    const fftSize=4096;
-    const chroma=new Float32Array(12);
-
-    // Simple DFT-based chroma extraction
-    for(let note=36;note<=84;note++){ // C2 to C6
-      const freq=440*Math.pow(2,(note-69)/12);
-      const pc=((note%12)+12)%12;
-      // Goertzel-like energy at this frequency
-      const k=Math.round(freq*fftSize/sr);
-      let re=0,im=0;
-      const w=2*Math.PI*k/fftSize;
-      for(let n=0;n<Math.min(chunk.length,fftSize);n++){
-        re+=chunk[n]*Math.cos(w*n);
-        im-=chunk[n]*Math.sin(w*n);
-      }
-      chroma[pc]+=Math.sqrt(re*re+im*im);
-    }
-
-    // Normalize
-    const maxC=Math.max(...chroma);
-    if(maxC<0.01)continue;
-    for(let i=0;i<12;i++)chroma[i]/=maxC;
-
-    // Match chord
-    const activePCs=[];
-    for(let i=0;i<12;i++){if(chroma[i]>0.25)activePCs.push(i)}
-    if(activePCs.length<1)continue;
-
-    let best=null,bs=0;
-    for(let r=0;r<12;r++){
-      for(const[sf,pt]of Object.entries(CPAT)){
-        const cpc=pt.map(p=>(r+p)%12);
-        let energy=0;
-        for(const p of cpc)energy+=chroma[p];
-        energy/=cpc.length;
-        let penalty=0;
-        for(let i=0;i<12;i++){if(!cpc.includes(i)&&chroma[i]>0.3)penalty+=chroma[i]*0.05}
-        const score=energy-penalty;
-        if(score>bs){bs=score;best={name:NM[r]+sf,notes:cpc.map(p=>NM[p]),score}}
-      }
-    }
-
-    if(best&&bs>0.15){
-      const time=ci*chunkSec;
-      detectedChords.push({name:best.name,time,notes:best.notes});
-    }
-  }
-
-  // Deduplicate consecutive same chords
-  for(const dc of detectedChords){
+  for(const bp of bestPath){
     const last=prog.length?prog[prog.length-1]:null;
-    if(!last||last.name!==dc.name){
-      const v=VOI[dc.name]?VOI[dc.name][0]:null;
-      prog.push({name:dc.name,time:dc.time,voicing:v,notes:dc.notes});
+    if(!last||last.name!==bp.name){
+      const v=VOI[bp.name]?VOI[bp.name][0]:null;
+      const deg=getDeg(bp.name,audioKey);
+      prog.push({name:bp.name,time:bp.time,voicing:v,notes:bp.notes||[],degree:deg});
     }
   }
 
-  // Update theory and display
+  // ═══ PASS 6: Pattern matching on final progression ═══
+  currentKey=audioKey;
   updTh();updStrip();updPr();
   if(mode==='learn')renderLearn();
 
   document.getElementById('pN').textContent='完了';
-  document.getElementById('pH').textContent=totalSec.toFixed(0)+'s / '+prog.length+'コード';
+  document.getElementById('pH').textContent=`${totalSec.toFixed(0)}s / ${tempo}BPM`;
+  document.getElementById('snapI').textContent=`${prog.length}コード / Key:${NM[audioKey]}`;
+}
+
+// ── Chroma extraction helper ──
+function computeChroma(chunk,sr){
+  const fftSize=4096;
+  const chroma=new Float32Array(12);
+  for(let note=36;note<=84;note++){
+    const freq=440*Math.pow(2,(note-69)/12);
+    const pc=((note%12)+12)%12;
+    const k=Math.round(freq*fftSize/sr);
+    let re=0,im=0;
+    const w=2*Math.PI*k/fftSize;
+    const len=Math.min(chunk.length,fftSize);
+    for(let n=0;n<len;n++){re+=chunk[n]*Math.cos(w*n);im-=chunk[n]*Math.sin(w*n)}
+    chroma[pc]+=Math.sqrt(re*re+im*im);
+  }
+  const maxC=Math.max(...chroma);
+  if(maxC<0.01)return null;
+  for(let i=0;i<12;i++)chroma[i]/=maxC;
+  return chroma;
+}
+
+// ── BPM detection via onset energy autocorrelation ──
+function detectBPM(data,sr){
+  const hop=512;
+  const numFrames=Math.floor(data.length/hop)-1;
+  const envelope=new Float32Array(numFrames);
+  for(let i=0;i<numFrames;i++){let energy=0;for(let j=0;j<hop;j++){const idx=i*hop+j;energy+=data[idx]*data[idx]}envelope[i]=Math.sqrt(energy/hop)}
+  const onset=new Float32Array(numFrames-1);
+  for(let i=1;i<numFrames;i++) onset[i-1]=Math.max(0,envelope[i]-envelope[i-1]);
+  const minLag=Math.floor((60/200)*(sr/hop));
+  const maxLag=Math.floor((60/60)*(sr/hop));
+  let bestLag=minLag,bestCorr=0;
+  for(let lag=minLag;lag<=Math.min(maxLag,onset.length/2);lag++){let corr=0;for(let i=0;i<onset.length-lag;i++)corr+=onset[i]*onset[i+lag];if(corr>bestCorr){bestCorr=corr;bestLag=lag}}
+  const bpm=60/((bestLag*hop)/sr);
+  return Math.max(60,Math.min(200,Math.round(bpm)));
 }
 
 // ═══ MAIN LOOP ═══
