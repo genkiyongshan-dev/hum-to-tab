@@ -101,6 +101,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
     <div class="chip" id="cGtr" onclick="setIn('guitar')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="8" y1="6" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="18"/></svg>ギター</div>
     <div class="spacer"></div>
     <div class="sg"><label>感度</label><input type="range" min="1" max="10" value="7" step="1" oninput="sens=+this.value;this.nextElementSibling.textContent=this.value"><span class="sv">7</span></div>
+    <div class="sg"><label>確信</label><input type="range" min="1" max="3" value="1" step="1" oninput="minPcs=+this.value;this.nextElementSibling.textContent=['1音','2音','3音'][this.value-1]"><span class="sv">1音</span></div>
     <div class="sg"><label>窓</label><input type="range" min="500" max="3000" value="1500" step="100" oninput="cWin=+this.value;this.nextElementSibling.textContent=(cWin/1000).toFixed(1)+'s'"><span class="sv">1.5s</span></div>
   </div>
   <div class="pitch"><div><div class="note" id="pN">--</div><div><span class="hz" id="pH">---</span><span class="hzl"> Hz</span></div></div><div class="snap-info" id="snapI"></div><div><div class="lvl"><div class="lvl-bar" id="lB"></div></div></div></div>
@@ -252,9 +253,28 @@ function updateHumKey(){
 // ═══ GUITAR MODE: accurate detection ═══
 const CPAT={'':[0,4,7],'m':[0,3,7],'7':[0,4,7,10]};
 function detectChordGuitar(midis){
-  if(midis.length<2)return null;
+  if(midis.length<1)return null;
   const pc=[...new Set(midis.map(m=>((Math.round(m)%12)+12)%12))];
-  if(pc.length<2)return null;
+
+  // Confidence check: require minimum unique pitch classes
+  if(pc.length<minPcs) return null;
+
+  // Single pitch: guess chord from root + key context
+  if(pc.length===1){
+    const r=pc[0];
+    const nm=NM[r];
+    if(currentKey!==null){
+      // Use diatonic context to decide major vs minor
+      const degMaj=getDeg(nm,currentKey);
+      const degMin=getDeg(nm+'m',currentKey);
+      if(degMin!=='?'&&degMaj==='?') return{name:nm+'m',notes:[r,(r+3)%12,(r+7)%12].map(p=>NM[p]),score:0.5,conf:1};
+      if(degMaj!=='?') return{name:nm,notes:[r,(r+4)%12,(r+7)%12].map(p=>NM[p]),score:0.5,conf:1};
+      if(degMin!=='?') return{name:nm+'m',notes:[r,(r+3)%12,(r+7)%12].map(p=>NM[p]),score:0.5,conf:1};
+    }
+    return{name:nm,notes:[r,(r+4)%12,(r+7)%12].map(p=>NM[p]),score:0.5,conf:1};
+  }
+
+  // Multiple pitches: full chord matching
   let cands=[];
   for(let r=0;r<12;r++){
     for(const[sf,pt]of Object.entries(CPAT)){
@@ -266,7 +286,7 @@ function detectChordGuitar(midis){
       if(currentKey!==null&&getDeg(NM[r]+sf,currentKey)!=='?')boost=0.02;
       const lowestPC=((Math.min(...midis)%12)+12)%12;
       if(r===lowestPC) boost+=0.08;
-      cands.push({name:NM[r]+sf,notes:cpc.map(p=>NM[p]),score:rs+boost});
+      cands.push({name:NM[r]+sf,notes:cpc.map(p=>NM[p]),score:rs+boost,conf:pc.length});
     }
   }
   cands.sort((a,b)=>b.score-a.score);
@@ -330,7 +350,8 @@ let mode='tab',inMode='mic',rec=false,actx=null,ana=null,strm=null;
 let notes=[],t0=0,prog=[],cWin=1500,sens=7;
 let lastMidi=-1,lastT=0,selC=-1,pBuf=[],chordBuf=[],lastChordTime=0;
 let currentKey=null,currentPredictions=[];const MCI=600;
-let gtrPitchBuf=[];const GTR_WINDOW=250;
+let gtrPitchBuf=[];
+let minPcs=1; // confidence: min unique pitch classes for chord (1=loose, 3=strict)
 
 function getSP(){const t=(sens-1)/9;return{rms:.025*(1-t)+.002*t,corr:.7*(1-t)+.15*t}}
 function stP(r){pBuf.push(r);if(pBuf.length>3)pBuf.shift();if(pBuf.length<2)return r;const s=[...pBuf].sort((a,b)=>a-b);return s[Math.floor(s.length/2)]}
@@ -406,30 +427,44 @@ function loop(){
 
   } else if(inMode==='guitar'){
     // ══ GUITAR MODE: accurate, autocorrelation-based ══
+    // Uses cWin (1.5s default) to accumulate pitches over time
     if(rf>0){
       const midi=69+12*Math.log2(rf/440);
       const rm=Math.round(midi);const nn=NM[((rm%12)+12)%12];
       document.getElementById('pN').textContent=nn;document.getElementById('pN').classList.add('on');
       document.getElementById('pH').textContent=rf.toFixed(0);
       document.getElementById('snapI').textContent='';
+
+      // Accumulate in both short (strum) and long (chord) buffers
       gtrPitchBuf.push({midi:rm,time:now});
-      gtrPitchBuf=gtrPitchBuf.filter(n=>now-n.time<GTR_WINDOW);
+      gtrPitchBuf=gtrPitchBuf.filter(n=>now-n.time<cWin); // use cWin, not 250ms
+
       const gap=rm===lastMidi?300:100;
       if(rm!==lastMidi||(now-lastT)>gap){
         const el=(now-t0)/1000,prev=notes.length?notes[notes.length-1]:null;
         const pos=pickPos(midi,prev?prev.str:-1,prev?prev.fret:-1);
         if(pos){notes.push({time:el,midi:rm,str:pos.str,fret:pos.fret,noteName:nn,color:SC[pos.str]});if(notes.length>2)reOpt(notes,Math.max(0,notes.length-5));lastMidi=rm;lastT=now}
       }
+
       if(now-lastChordTime>MCI){
         const uq=[...new Set(gtrPitchBuf.map(n=>n.midi))];
-        if(uq.length>=2){
-          const ch=detectChordGuitar(uq);
-          if(ch){const last=prog.length?prog[prog.length-1]:null;if(!last||last.name!==ch.name){const el=(now-t0)/1000,v=VOI[ch.name]?VOI[ch.name][0]:null;prog.push({name:ch.name,time:el,voicing:v,notes:ch.notes});lastChordTime=now;gtrPitchBuf=[];updTh();updStrip();updPr();if(mode==='learn')renderLearn()}}
+        // Allow chord detection even with 1 pitch (use root-based guess)
+        const ch=detectChordGuitar(uq);
+        if(ch){
+          const last=prog.length?prog[prog.length-1]:null;
+          if(!last||last.name!==ch.name){
+            const el=(now-t0)/1000,v=VOI[ch.name]?VOI[ch.name][0]:null;
+            prog.push({name:ch.name,time:el,voicing:v,notes:ch.notes,conf:ch.conf||0});
+            lastChordTime=now;
+            // Don't clear buffer - let it keep accumulating for better detection
+            updTh();updStrip();updPr();
+            if(mode==='learn')renderLearn();
+          }
         }
       }
     } else {
       document.getElementById('pN').classList.remove('on');
-      if(gtrPitchBuf.length&&now-gtrPitchBuf[gtrPitchBuf.length-1].time>400)gtrPitchBuf=[];
+      if(gtrPitchBuf.length&&now-gtrPitchBuf[gtrPitchBuf.length-1].time>500)gtrPitchBuf=[];
     }
 
   } else {
@@ -458,7 +493,7 @@ function renderPrUI(){const el=document.getElementById('pr');let h='<span class=
 function forceChord(nm){const now=performance.now(),el=(now-t0)/1000,v=VOI[nm]?VOI[nm][0]:null;if(prog.length&&prog[prog.length-1].name===nm)return;prog.push({name:nm,time:el,voicing:v,notes:[]});lastChordTime=now;chordBuf=[];updTh();updStrip();updPr();if(mode==='learn')renderLearn()}
 
 // ═══ STRIP ═══
-function updStrip(){const el=document.getElementById('cb');let h='<span class="lbl">進行</span>';prog.forEach((c,i)=>{if(i>0)h+='<span class="ca">→</span>';const cls=i===prog.length-1?'ci now':i===selC?'ci sel':'ci';const nm=c.name.replace(/'/g,"\\'");h+=`<span class="${cls}" onclick="showDg(${i});playChord('${nm}')"><span class="cn">${c.name}</span><span class="cd">${c.degree||''}</span></span>`});el.innerHTML=h;el.scrollLeft=el.scrollWidth;if(prog.length)showDg(prog.length-1)}
+function updStrip(){const el=document.getElementById('cb');let h='<span class="lbl">進行</span>';prog.forEach((c,i)=>{if(i>0)h+='<span class="ca">→</span>';const cls=i===prog.length-1?'ci now':i===selC?'ci sel':'ci';const nm=c.name.replace(/'/g,"\\'");const confDots=c.conf?'●'.repeat(Math.min(c.conf,3)):'';const confStyle=c.conf&&c.conf<2?'opacity:.5':'';h+=`<span class="${cls}" style="${confStyle}" onclick="showDg(${i});playChord('${nm}')"><span class="cn">${c.name}</span><span class="cd">${c.degree||''} ${confDots}</span></span>`});el.innerHTML=h;el.scrollLeft=el.scrollWidth;if(prog.length)showDg(prog.length-1)}
 
 // ═══ DIAGRAM ═══
 function showDg(i){selC=i;const c=prog[i];if(!c)return;document.getElementById('dg').classList.add('open');document.getElementById('dN').textContent=c.name;document.querySelectorAll('.ci').forEach((e,j)=>e.className=j===i?'ci sel':j===prog.length-1?'ci now':'ci');const inf=document.getElementById('dI'),ds=c.degree?' ('+c.degree+')':'',fn=getFunc(c.degree),fnL={'T':'トニック','SD':'サブドミナント','D':'ドミナント'}[fn]||'';if(c.voicing){inf.innerHTML=`${c.name}${ds} ${fnL}<br>E A D G B e<br>${c.voicing.map(f=>f===-1?'x':f).join(' ')}<br>構成音: ${(c.notes||[]).join('·')}<br><button class="play-btn" onclick="playChord('${c.name.replace(/'/g,"\\'")}')">♪ 鳴らす</button>`;drawDg(c.voicing)}else{inf.innerHTML=`${c.name}${ds} ${fnL}<br><button class="play-btn" onclick="playChord('${c.name.replace(/'/g,"\\'")}')">♪ 鳴らす</button>`;drawDgE()}}
