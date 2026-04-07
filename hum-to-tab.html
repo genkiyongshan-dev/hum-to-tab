@@ -483,7 +483,7 @@ function stopA(){
 }
 function toggle(){rec?stopA():startA().catch(console.error)}
 
-// ═══ BATCH AUDIO ANALYSIS (contextual multi-pass) ═══
+// ═══ BATCH AUDIO ANALYSIS (wave-shape + pattern matching) ═══
 async function analyzeRecording(){
   if(!audioChunks.length)return;
   document.getElementById('pN').textContent='...';
@@ -502,196 +502,186 @@ async function analyzeRecording(){
   const data=audioBuf.getChannelData(0);
   const totalSec=data.length/sr;
 
-  // ═══ PASS 1: Tempo detection ═══
+  // ═══ STEP 1: BPM detection with half-tempo correction ═══
   document.getElementById('snapI').textContent='テンポ検出中...';
-  const detectedBPM=detectBPM(data,sr);
-  const barSec=(60/detectedBPM)*4;
+  let detectedBPM=detectBPM(data,sr);
+  // Half-tempo correction: if BPM < 85, likely detected half-tempo
+  if(detectedBPM<85) detectedBPM*=2;
+  const barSec=(60/detectedBPM)*4; // 4 beats per bar
   tempo=Math.round(detectedBPM);
   document.getElementById('tempoVal').textContent=tempo;
 
-  const numBars=Math.max(1,Math.floor(totalSec/barSec));
-  const SIMPLE={'':[0,4,7],'m':[0,3,7]};
-
-  // ═══ PASS 2: Generate TOP 4 candidates per bar ═══
-  document.getElementById('snapI').textContent='コード候補生成中...';
-  const barCandidates=[]; // array of arrays: [[{name,score},...], ...]
-
-  for(let bar=0;bar<numBars;bar++){
-    const startSample=Math.floor(bar*barSec*sr);
-    const endSample=Math.min(Math.floor((bar+1)*barSec*sr),data.length);
-    const chunk=data.slice(startSample,endSample);
-    const chroma=computeChroma(chunk,sr);
-
-    const cands=[];
-    if(chroma){
-      for(let r=0;r<12;r++){
-        for(const[sf,pt]of Object.entries(SIMPLE)){
-          const cpc=pt.map(p=>(r+p)%12);
-          let energy=0;
-          for(const p of cpc) energy+=chroma[p];
-          energy/=cpc.length;
-          let penalty=0;
-          for(let i=0;i<12;i++){if(!cpc.includes(i)&&chroma[i]>0.3)penalty+=chroma[i]*0.03}
-          cands.push({name:NM[r]+sf,score:energy-penalty,root:r,type:sf,notes:cpc.map(p=>NM[p])});
-        }
-      }
-      cands.sort((a,b)=>b.score-a.score);
+  // ═══ STEP 2: Global key from full recording chroma ═══
+  document.getElementById('snapI').textContent='キー推定中...';
+  const globalChroma=computeChromaAveraged(data,sr);
+  let audioKey=0;
+  if(globalChroma){
+    // Key = pitch class with highest chroma energy, weighted by scale fit
+    let bestKeyFit=0;
+    for(let k=0;k<12;k++){
+      let fit=0;
+      for(const o of MAJOR_SCALE) fit+=globalChroma[(k+o)%12];
+      if(fit>bestKeyFit){bestKeyFit=fit;audioKey=k}
     }
-    barCandidates.push(cands.slice(0,6)); // keep top 6 candidates
   }
 
-  // ═══ PASS 3: Key estimation from strongest candidates ═══
-  document.getElementById('snapI').textContent='キー推定中...';
-
-  // Weight first bar, last bar, and overall histogram
-  const keyVotes=new Array(12).fill(0);
-  barCandidates.forEach((cands,barIdx)=>{
-    if(!cands.length)return;
-    const top=cands[0];
-    const weight=barIdx===0?3:(barIdx===barCandidates.length-1?2:1); // first bar weighted 3x
-    const rootPC=NM.indexOf(top.name.replace('m',''));
-    // Vote for keys where this chord is diatonic
-    for(let k=0;k<12;k++){
-      const dias=DIA.map(d=>NM[(k+d.o)%12]+d.t);
-      if(dias.includes(top.name)) keyVotes[k]+=weight*top.score;
-    }
-  });
-  let audioKey=0,bestKeyScore=0;
-  for(let k=0;k<12;k++){if(keyVotes[k]>bestKeyScore){bestKeyScore=keyVotes[k];audioKey=k}}
-
-  // Build diatonic chord list for this key (no vii°)
   const diaChords=DIA.filter(d=>d.d!=='vii°').map(d=>({
-    name:NM[(audioKey+d.o)%12]+d.t,
-    deg:d.d,
-    fn:d.fn,
-    root:(audioKey+d.o)%12
+    name:NM[(audioKey+d.o)%12]+d.t, deg:d.d, fn:d.fn,
+    // Tension profile: T=0(stable), SD=0.5(moving), D=1(tension)
+    tension:d.fn==='T'?0:d.fn==='SD'?0.5:1
   }));
-  const diaNames=diaChords.map(d=>d.name);
 
-  // ═══ PASS 4: Viterbi-style optimal path selection ═══
-  // For each bar, pick the chord that maximizes:
-  //   audio score + diatonic bonus + transition bonus from previous chord
-  document.getElementById('snapI').textContent='進行最適化中...';
-
-  const bestPath=[]; // {name, score, time, notes}
+  // ═══ STEP 3: Compute energy/tension curve of the recording ═══
+  document.getElementById('snapI').textContent='音の流れ解析中...';
+  const numBars=Math.max(1,Math.floor(totalSec/barSec));
+  const barChromas=[]; // averaged chroma per bar
 
   for(let bar=0;bar<numBars;bar++){
-    const cands=barCandidates[bar];
-    if(!cands.length){
-      // No candidates: repeat previous or skip
-      if(bestPath.length) bestPath.push({...bestPath[bestPath.length-1],time:bar*barSec});
+    const s0=Math.floor(bar*barSec*sr);
+    const s1=Math.min(Math.floor((bar+1)*barSec*sr),data.length);
+    const chunk=data.slice(s0,s1);
+    const chroma=computeChromaAveraged(chunk,sr);
+    barChromas.push(chroma);
+  }
+
+  // Build energy curve: relative pitch height per bar (sense of tension)
+  const energyCurve=barChromas.map(ch=>{
+    if(!ch) return 0.5;
+    // Weighted average pitch class (higher = more tension feeling)
+    let sum=0,wt=0;
+    for(let i=0;i<12;i++){sum+=ch[i]*i;wt+=ch[i]}
+    return wt>0?sum/wt/11:0.5; // normalize 0-1
+  });
+
+  // ═══ STEP 4: Match against known progression patterns ═══
+  document.getElementById('snapI').textContent='パターンマッチング中...';
+
+  // Generate tension templates from known patterns
+  const patternResults=[];
+
+  for(const pat of PATS){
+    // Build tension template for this pattern
+    const patTensions=pat.degs.map(deg=>{
+      const d=DIA.find(x=>x.d===deg);
+      if(!d) return 0.5;
+      return d.fn==='T'?0:d.fn==='SD'?0.5:1;
+    });
+
+    // Stretch/tile pattern to match number of bars
+    const template=[];
+    for(let i=0;i<numBars;i++){
+      template.push(patTensions[i%patTensions.length]);
+    }
+
+    // Compute shape similarity (correlation)
+    let corr=0,n1=0,n2=0;
+    const m1=energyCurve.reduce((a,b)=>a+b,0)/numBars;
+    const m2=template.reduce((a,b)=>a+b,0)/numBars;
+    for(let i=0;i<numBars;i++){
+      const d1=energyCurve[i]-m1, d2=template[i]-m2;
+      corr+=d1*d2; n1+=d1*d1; n2+=d2*d2;
+    }
+    const similarity=n1>0&&n2>0?corr/Math.sqrt(n1*n2):0;
+    patternResults.push({pattern:pat,similarity,template});
+  }
+
+  patternResults.sort((a,b)=>b.similarity-a.similarity);
+  const bestPattern=patternResults[0];
+
+  // ═══ STEP 5: Assign chords per bar using best pattern + chroma confirmation ═══
+  document.getElementById('snapI').textContent='コード確定中...';
+
+  const SIMPLE={'':[0,4,7],'m':[0,3,7]};
+  const bestPath=[];
+
+  for(let bar=0;bar<numBars;bar++){
+    const patDegIdx=bar%bestPattern.pattern.degs.length;
+    const expectedDeg=bestPattern.pattern.degs[patDegIdx];
+    const expectedChord=diaChords.find(d=>d.deg===expectedDeg);
+
+    const ch=barChromas[bar];
+
+    if(!ch||!expectedChord){
+      // Use pattern's chord directly
+      if(expectedChord){
+        bestPath.push({name:expectedChord.name,time:bar*barSec,notes:[],deg:expectedChord.deg});
+      }
       continue;
     }
 
-    let bestChoice=null, bestTotal=-Infinity;
+    // Score all diatonic chords against this bar's chroma
+    let bestLocal=null,bestScore=-1;
+    for(const dc of diaChords){
+      const rootPC=(audioKey+DIA.find(d=>d.d===dc.deg).o)%12;
+      const pcs=dc.name.endsWith('m')?[0,3,7].map(p=>(rootPC+p)%12):[0,4,7].map(p=>(rootPC+p)%12);
+      let energy=0;
+      for(const p of pcs) energy+=ch[p];
+      energy/=3;
 
-    for(const cand of cands){
-      let total=cand.score;
+      // Bonus if this matches pattern's expected chord
+      if(dc.deg===expectedDeg) energy+=0.15;
 
-      // ── Diatonic bonus (strong) ──
-      if(diaNames.includes(cand.name)) total+=0.15;
-
-      // ── Snap non-diatonic to nearest diatonic (check if a diatonic chord scores similarly) ──
-      const isDiatonic=diaNames.includes(cand.name);
-
-      // ── First bar bonus: prefer I or vi (common song starts) ──
-      if(bar===0){
-        const deg=getDeg(cand.name,audioKey);
-        if(deg==='I') total+=0.1;
-        else if(deg==='vi') total+=0.08;
-      }
-
-      // ── Last bar bonus: prefer I (songs typically resolve to tonic) ──
-      if(bar===numBars-1){
-        const deg=getDeg(cand.name,audioKey);
-        if(deg==='I') total+=0.12;
-        else if(deg==='V') total+=0.05; // V at end = half cadence, ok
-      }
-
-      // ── Transition bonus from previous chord ──
+      // Transition bonus from previous bar
       if(bestPath.length>0){
-        const prevName=bestPath[bestPath.length-1].name;
-        const prevDeg=getDeg(prevName,audioKey);
-        const thisDeg=getDeg(cand.name,audioKey);
+        const prevDeg=bestPath[bestPath.length-1].deg;
         const prevFn=getFunc(prevDeg);
-        const thisFn=getFunc(thisDeg);
-
-        // Natural functional flow: T→SD, SD→D, D→T
-        if((prevFn==='T'&&thisFn==='SD')||(prevFn==='SD'&&thisFn==='D')||(prevFn==='D'&&thisFn==='T')) total+=0.08;
-        // Same chord continuing is natural
-        if(prevName===cand.name) total+=0.05;
-        // Same function is ok
-        if(prevFn===thisFn&&prevName!==cand.name) total+=0.02;
-        // V→I is the strongest resolution
-        if(prevDeg==='V'&&thisDeg==='I') total+=0.1;
-        // IV→V is classic pre-dominant
-        if(prevDeg==='IV'&&thisDeg==='V') total+=0.06;
-        // vi→IV is very common
-        if(prevDeg==='vi'&&thisDeg==='IV') total+=0.06;
-
-        // Penalize unlikely jumps
-        const prevRoot=NM.indexOf(prevName.replace('m',''));
-        const thisRoot=NM.indexOf(cand.name.replace('m',''));
-        const rootDist=Math.min(Math.abs(prevRoot-thisRoot),12-Math.abs(prevRoot-thisRoot));
-        if(rootDist===1||rootDist===6) total-=0.03; // semitone or tritone jumps are rare
+        const thisFn=dc.fn;
+        if((prevFn==='T'&&thisFn==='SD')||(prevFn==='SD'&&thisFn==='D')||(prevFn==='D'&&thisFn==='T')) energy+=0.06;
+        if(prevDeg==='V'&&dc.deg==='I') energy+=0.08;
       }
 
-      if(total>bestTotal){bestTotal=total;bestChoice={name:cand.name,score:total,time:bar*barSec,notes:cand.notes}}
+      if(energy>bestScore){bestScore=energy;bestLocal={name:dc.name,deg:dc.deg,notes:pcs.map(p=>NM[p])}}
     }
 
-    // If best choice is not diatonic, try snapping to nearest diatonic
-    if(bestChoice&&!diaNames.includes(bestChoice.name)){
-      const origRoot=NM.indexOf(bestChoice.name.replace('m',''));
-      let snapName=null,snapDist=99;
-      for(const dn of diaNames){
-        const dRoot=NM.indexOf(dn.replace('m',''));
-        const dist=Math.min(Math.abs(origRoot-dRoot),12-Math.abs(origRoot-dRoot));
-        if(dist<snapDist){snapDist=dist;snapName=dn}
-      }
-      // Snap if distance is small (1 semitone)
-      if(snapName&&snapDist<=1) bestChoice.name=snapName;
-    }
-
-    if(bestChoice) bestPath.push(bestChoice);
+    bestPath.push({name:bestLocal?bestLocal.name:expectedChord.name,time:bar*barSec,notes:bestLocal?bestLocal.notes:[],deg:bestLocal?bestLocal.deg:expectedChord.deg});
   }
 
-  // ═══ PASS 5: Deduplicate consecutive same chords ═══
+  // ═══ STEP 6: Deduplicate + finalize ═══
   prog=[];
   for(const bp of bestPath){
     const last=prog.length?prog[prog.length-1]:null;
     if(!last||last.name!==bp.name){
       const v=VOI[bp.name]?VOI[bp.name][0]:null;
-      const deg=getDeg(bp.name,audioKey);
-      prog.push({name:bp.name,time:bp.time,voicing:v,notes:bp.notes||[],degree:deg});
+      prog.push({name:bp.name,time:bp.time,voicing:v,notes:bp.notes||[],degree:bp.deg||getDeg(bp.name,audioKey)});
     }
   }
 
-  // ═══ PASS 6: Pattern matching on final progression ═══
   currentKey=audioKey;
   updTh();updStrip();updPr();
   if(mode==='learn')renderLearn();
 
+  const patName=bestPattern.similarity>0.1?bestPattern.pattern.name:'';
   document.getElementById('pN').textContent='完了';
   document.getElementById('pH').textContent=`${totalSec.toFixed(0)}s / ${tempo}BPM`;
-  document.getElementById('snapI').textContent=`${prog.length}コード / Key:${NM[audioKey]}`;
+  document.getElementById('snapI').textContent=`${prog.length}コード / Key:${NM[audioKey]}${patName?' / '+patName:''}`;
 }
 
-// ── Chroma extraction helper ──
-function computeChroma(chunk,sr){
+// ── Averaged chroma: multiple overlapping windows for stable extraction ──
+function computeChromaAveraged(chunk,sr){
   const fftSize=4096;
+  const hopSize=2048; // 50% overlap
+  const numWindows=Math.max(1,Math.floor((chunk.length-fftSize)/hopSize)+1);
   const chroma=new Float32Array(12);
-  for(let note=36;note<=84;note++){
-    const freq=440*Math.pow(2,(note-69)/12);
-    const pc=((note%12)+12)%12;
-    const k=Math.round(freq*fftSize/sr);
-    let re=0,im=0;
-    const w=2*Math.PI*k/fftSize;
-    const len=Math.min(chunk.length,fftSize);
-    for(let n=0;n<len;n++){re+=chunk[n]*Math.cos(w*n);im-=chunk[n]*Math.sin(w*n)}
-    chroma[pc]+=Math.sqrt(re*re+im*im);
+
+  for(let w=0;w<numWindows;w++){
+    const offset=w*hopSize;
+    for(let note=36;note<=84;note++){
+      const freq=440*Math.pow(2,(note-69)/12);
+      const pc=((note%12)+12)%12;
+      const k=Math.round(freq*fftSize/sr);
+      let re=0,im=0;
+      const ww=2*Math.PI*k/fftSize;
+      const len=Math.min(fftSize,chunk.length-offset);
+      for(let n=0;n<len;n++){re+=chunk[offset+n]*Math.cos(ww*n);im-=chunk[offset+n]*Math.sin(ww*n)}
+      chroma[pc]+=Math.sqrt(re*re+im*im);
+    }
   }
+
+  // Average across windows
+  if(numWindows>1) for(let i=0;i<12;i++) chroma[i]/=numWindows;
+
   const maxC=Math.max(...chroma);
-  if(maxC<0.01)return null;
+  if(maxC<0.005)return null;
   for(let i=0;i<12;i++)chroma[i]/=maxC;
   return chroma;
 }
